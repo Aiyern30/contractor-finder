@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { ArrowRight, Shield, Zap, CheckCircle } from "lucide-react";
+import { UserNav } from "@/components/layout/user-nav";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -22,9 +23,7 @@ export default async function Home() {
         {/* Header / Nav placeholder if needed */}
         {session && (
           <div className="absolute top-6 right-6">
-            <div className="px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-sm text-zinc-300">
-              Signed in as {session.user.email}
-            </div>
+            <UserNav />
           </div>
         )}
 
