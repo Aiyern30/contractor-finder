@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/user-nav";
 import { Profile } from "@/types";
 import {
@@ -12,39 +15,83 @@ import {
   TrendingUp,
   Calendar,
   FileText,
+  Plus,
 } from "lucide-react";
 
 export default function ContractorDashboardPage() {
   const { supabase } = useSupabase();
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [contractorProfile, setContractorProfile] = useState<any>(null);
+  const [services, setServices] = useState<any[]>([]);
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadProfile() {
+    async function loadData() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (session?.user && mounted) {
-        const { data } = await supabase
+        // Load user profile
+        const { data: userProfile } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", session.user.id)
           .single();
 
+        if (mounted) setProfile(userProfile);
+
+        // Load contractor profile
+        const { data: contProfile } = await supabase
+          .from("contractor_profiles")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .single();
+
         if (mounted) {
-          setProfile(data);
+          if (!contProfile) {
+            router.push("/dashboard/contractor/setup");
+            return;
+          }
+          setContractorProfile(contProfile);
+
+          // Load services
+          const { data: servicesData } = await supabase
+            .from("contractor_services")
+            .select(
+              `
+              *,
+              service_categories (
+                name,
+                description
+              )
+            `
+            )
+            .eq("contractor_id", contProfile.id);
+
+          if (mounted) setServices(servicesData || []);
         }
       }
     }
 
-    loadProfile();
+    loadData();
 
     return () => {
       mounted = false;
     };
-  }, [supabase]);
+  }, [supabase, router]);
+
+  const profileCompletion = contractorProfile
+    ? [
+        contractorProfile.business_name,
+        contractorProfile.bio,
+        contractorProfile.city,
+        contractorProfile.hourly_rate,
+        services.length > 0,
+      ].filter(Boolean).length * 20
+    : 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -67,6 +114,33 @@ export default function ContractorDashboardPage() {
       </header>
 
       <div className="flex-1 p-8 space-y-8">
+        {/* Profile Completion Alert */}
+        {profileCompletion < 100 && (
+          <Card className="p-6 bg-linear-to-r from-purple-500/10 to-indigo-500/10 border-purple-500/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-1">
+                  Complete Your Profile
+                </h3>
+                <p className="text-sm text-zinc-400">
+                  Your profile is {profileCompletion}% complete. Complete it to
+                  get more jobs!
+                </p>
+              </div>
+              <Button
+                onClick={() =>
+                  services.length === 0
+                    ? router.push("/dashboard/contractor/services/add")
+                    : router.push("/dashboard/contractor/profile/edit")
+                }
+                className="bg-purple-500 hover:bg-purple-600"
+              >
+                {services.length === 0 ? "Add Services" : "Complete Profile"}
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Stats Grid - Contractor specific */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
@@ -105,6 +179,51 @@ export default function ContractorDashboardPage() {
             <p className="text-xs text-zinc-500 mt-1">Jobs completed</p>
           </Card>
         </div>
+
+        {/* Services List */}
+        {services.length > 0 && (
+          <Card className="p-6 bg-white/5 border-white/10">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-white">
+                Your Services
+              </h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  router.push("/dashboard/contractor/services/add")
+                }
+                className="border-white/10 text-white hover:bg-white/5"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add More
+              </Button>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {services.map((service) => (
+                <div
+                  key={service.id}
+                  className="p-4 rounded-lg border border-white/10 bg-white/5"
+                >
+                  <h4 className="font-semibold text-white mb-2">
+                    {service.service_categories.name}
+                  </h4>
+                  {(service.price_range_min || service.price_range_max) && (
+                    <p className="text-sm text-zinc-400 mb-2">
+                      ${service.price_range_min || "0"} - $
+                      {service.price_range_max || "0"}
+                    </p>
+                  )}
+                  {service.description && (
+                    <p className="text-xs text-zinc-500 line-clamp-2">
+                      {service.description}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Available Projects & Schedule */}
         <div className="grid gap-8 md:grid-cols-2">

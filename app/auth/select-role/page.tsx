@@ -65,6 +65,7 @@ export default function SelectRolePage() {
       const { error: profileError } = await supabase.from("profiles").upsert(
         {
           id: user.id,
+          email: user.email,
           full_name:
             user.user_metadata.full_name || user.user_metadata.name || "",
           avatar_url:
@@ -79,11 +80,26 @@ export default function SelectRolePage() {
 
       if (profileError) {
         console.error("Profile upsert error:", profileError);
-        // Don't throw - profile sync is secondary
       }
 
-      // Force reload to get fresh auth state
-      window.location.href = "/dashboard";
+      // Redirect based on role
+      if (role === "contractor") {
+        // Check if contractor profile exists
+        const { data: contractorProfile } = await supabase
+          .from("contractor_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!contractorProfile) {
+          // No contractor profile, go to setup
+          window.location.href = "/dashboard/contractor/setup";
+        } else {
+          window.location.href = "/dashboard/contractor";
+        }
+      } else {
+        window.location.href = "/dashboard/customer";
+      }
     } catch (error) {
       console.error("Error setting role:", error);
       alert("Failed to set role. Please try again.");
