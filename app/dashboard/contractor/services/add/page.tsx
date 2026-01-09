@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Plus, X } from "lucide-react";
 
 interface ServiceCategory {
@@ -31,7 +30,9 @@ export default function AddServicesPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [contractorId, setContractorId] = useState<string>("");
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
-  const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
+  const [selectedServices, setSelectedServices] = useState<SelectedService[]>(
+    []
+  );
 
   useEffect(() => {
     async function loadData() {
@@ -88,7 +89,9 @@ export default function AddServicesPage() {
   };
 
   const removeService = (categoryId: string) => {
-    setSelectedServices(selectedServices.filter((s) => s.categoryId !== categoryId));
+    setSelectedServices(
+      selectedServices.filter((s) => s.categoryId !== categoryId)
+    );
   };
 
   const updateService = (categoryId: string, field: string, value: string) => {
@@ -135,7 +138,9 @@ export default function AddServicesPage() {
     <div className="min-h-screen bg-[#0A0A0A] p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Add Your Services</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Add Your Services
+          </h1>
           <p className="text-zinc-400">
             Select the services you offer and set your pricing
           </p>
@@ -147,12 +152,14 @@ export default function AddServicesPage() {
             <h2 className="text-lg font-semibold text-white mb-4">
               Available Services
             </h2>
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            <div className="space-y-2 max-h-150 overflow-y-auto">
               {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => addService(cat)}
-                  disabled={selectedServices.some((s) => s.categoryId === cat.id)}
+                  disabled={selectedServices.some(
+                    (s) => s.categoryId === cat.id
+                  )}
                   className="w-full text-left p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <div className="font-medium text-white">{cat.name}</div>
@@ -171,7 +178,7 @@ export default function AddServicesPage() {
             <h2 className="text-lg font-semibold text-white mb-4">
               Your Services ({selectedServices.length})
             </h2>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+            <div className="space-y-4 max-h-150 overflow-y-auto">
               {selectedServices.length === 0 ? (
                 <div className="text-center py-8 text-zinc-500">
                   <Plus className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -199,26 +206,38 @@ export default function AddServicesPage() {
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-xs text-zinc-400">Min Price ($)</Label>
+                          <Label className="text-xs text-zinc-400">
+                            Min Price ($)
+                          </Label>
                           <Input
                             type="number"
                             step="0.01"
                             value={service.priceMin}
                             onChange={(e) =>
-                              updateService(service.categoryId, "priceMin", e.target.value)
+                              updateService(
+                                service.categoryId,
+                                "priceMin",
+                                e.target.value
+                              )
                             }
                             className="bg-white/5 border-white/10 text-white h-8 text-sm"
                             placeholder="100"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-zinc-400">Max Price ($)</Label>
+                          <Label className="text-xs text-zinc-400">
+                            Max Price ($)
+                          </Label>
                           <Input
                             type="number"
                             step="0.01"
                             value={service.priceMax}
                             onChange={(e) =>
-                              updateService(service.categoryId, "priceMax", e.target.value)
+                              updateService(
+                                service.categoryId,
+                                "priceMax",
+                                e.target.value
+                              )
                             }
                             className="bg-white/5 border-white/10 text-white h-8 text-sm"
                             placeholder="500"
@@ -227,7 +246,9 @@ export default function AddServicesPage() {
                       </div>
 
                       <div>
-                        <Label className="text-xs text-zinc-400">Description</Label>
+                        <Label className="text-xs text-zinc-400">
+                          Description
+                        </Label>
                         <Textarea
                           value={service.description}
                           onChange={(e) =>
@@ -237,7 +258,7 @@ export default function AddServicesPage() {
                               e.target.value
                             )
                           }
-                          className="bg-white/5 border-white/10 text-white text-sm min-h-[60px]"
+                          className="bg-white/5 border-white/10 text-white text-sm min-h-15"
                           placeholder="Describe your service..."
                         />
                       </div>
