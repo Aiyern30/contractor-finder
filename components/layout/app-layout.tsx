@@ -7,6 +7,25 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import type { User } from "@supabase/supabase-js";
 
+// Helper function to check if page is public
+function isPublicPage(path: string) {
+  return path === "/" || path === "/auth/select-role";
+}
+
+// Helper function to get correct dashboard path based on user type
+function getDashboardPath(userType: string) {
+  switch (userType) {
+    case "homeowner":
+      return "/dashboard/customer";
+    case "contractor":
+      return "/dashboard/contractor";
+    case "admin":
+      return "/dashboard/admin";
+    default:
+      return "/dashboard/customer";
+  }
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase } = useSupabase();
   const pathname = usePathname();
@@ -27,8 +46,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
-      // If user exists and we're on a protected route, check for role in raw_user_meta_data
-      if (currentUser && pathname !== "/" && pathname !== "/auth/select-role") {
+      // If user exists and we're on a protected route, check for role
+      if (currentUser && !isPublicPage(pathname)) {
         const userType = currentUser.user_metadata?.user_type;
 
         if (!userType) {
@@ -36,6 +55,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           router.replace("/auth/select-role");
           setIsInitializing(false);
           return;
+        }
+
+        // Check if user is on correct dashboard
+        if (pathname.startsWith("/dashboard")) {
+          const correctPath = getDashboardPath(userType);
+
+          // If on generic /dashboard, redirect to correct one
+          if (pathname === "/dashboard") {
+            router.replace(correctPath);
+            return;
+          }
+
+          // Check if user is trying to access wrong dashboard
+          if (!pathname.startsWith(correctPath) && !pathname.startsWith("/dashboard/settings")) {
+            router.replace(correctPath);
+            return;
+          }
         }
       }
 
@@ -54,9 +90,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       // Handle sign out
       if (event === "SIGNED_OUT" || !newUser) {
-        if (pathname !== "/") {
+        if (!isPublicPage(pathname)) {
           router.replace("/");
-          // Force refresh after a brief moment
           setTimeout(() => {
             window.location.href = "/";
           }, 100);
@@ -71,9 +106,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [supabase, pathname, router]);
 
   // Public pages without layout
-  const isPublicPage = pathname === "/" || pathname === "/auth/select-role";
-
-  if (isPublicPage) {
+  if (isPublicPage(pathname)) {
     return <>{children}</>;
   }
 
@@ -86,30 +119,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // No user and not on public page - redirect happening
     return null;
   }
 
-  return (
-    <div className="h-screen w-full overflow-hidden bg-[#0A0A0A] text-zinc-100 flex flex-col md:flex-row">
-      {/* Mobile Top Bar */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-30">
-        <div className="flex items-center gap-2 font-bold text-lg text-white">
-          <div className="h-6 w-6 rounded bg-linear-to-br from-indigo-500 to-purple-600" />
-          ContractorFinder
+  // Dashboard pages get the layout
+  const isDashboard = pathname.startsWith("/dashboard");
+
+  if (isDashboard) {
+    return (
+      <div className="h-screen w-full overflow-hidden bg-[#0A0A0A] text-zinc-100 flex flex-col md:flex-row">
+        {/* Mobile Top Bar */}
+        <div className="md:hidden flex items-center justify-between p-4 border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-30">
+          <div className="flex items-center gap-2 font-bold text-lg text-white">
+            <div className="h-6 w-6 rounded bg-linear-to-br from-indigo-500 to-purple-600" />
+            ContractorFinder
+          </div>
+          <MobileNav />
         </div>
-        <MobileNav />
+
+        {/* Desktop Sidebar */}
+        <aside className="hidden md:flex w-72 h-full flex-col">
+          <DashboardSidebar />
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-white/10">
+          {children}
+        </main>
       </div>
+    );
+  }
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-72 h-full flex-col">
-        <DashboardSidebar />
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-white/10">
-        {children}
-      </main>
-    </div>
-  );
+  // Other pages without layout
+  return <>{children}</>;
 }

@@ -18,17 +18,23 @@ export async function GET(request: Request) {
     // Check if user has user_type in raw_user_meta_data
     if (data.user) {
       const userType = data.user.user_metadata?.user_type;
-      
-      console.log("User metadata:", data.user.user_metadata);
-      console.log("User type:", userType);
 
       // If no user_type, redirect to role selection
       if (!userType) {
         return NextResponse.redirect(`${origin}/auth/select-role`);
       }
+
+      // Redirect based on user type
+      if (userType === "homeowner") {
+        return NextResponse.redirect(`${origin}/dashboard/customer`);
+      } else if (userType === "contractor") {
+        return NextResponse.redirect(`${origin}/dashboard/contractor`);
+      } else if (userType === "admin") {
+        return NextResponse.redirect(`${origin}/dashboard/admin`);
+      }
     }
   }
 
-  // User has role, go to dashboard
-  return NextResponse.redirect(`${origin}/dashboard`);
+  // Default to customer dashboard
+  return NextResponse.redirect(`${origin}/dashboard/customer`);
 }

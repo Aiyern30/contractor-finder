@@ -6,9 +6,14 @@ import {
   Briefcase,
   MessageSquare,
   Settings,
+  Users,
+  FileText,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSupabase } from "@/components/providers/supabase-provider";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onItemClick?: () => void;
@@ -16,33 +21,124 @@ interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
   const pathname = usePathname();
+  const { supabase } = useSupabase();
+  const [userType, setUserType] = useState<string | null>(null);
 
-  const routes = [
+  useEffect(() => {
+    async function getUserType() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserType(session.user.user_metadata?.user_type);
+      }
+    }
+    getUserType();
+  }, [supabase]);
+
+  // Customer/Homeowner routes
+  const customerRoutes = [
     {
       label: "Overview",
       icon: LayoutDashboard,
-      href: "/dashboard",
-      active: pathname === "/dashboard",
+      href: "/dashboard/customer",
+      active: pathname === "/dashboard/customer",
     },
     {
       label: "My Projects",
       icon: Briefcase,
-      href: "/dashboard/projects",
-      active: pathname === "/dashboard/projects",
+      href: "/dashboard/customer/projects",
+      active: pathname === "/dashboard/customer/projects",
     },
     {
       label: "Messages",
       icon: MessageSquare,
-      href: "/dashboard/messages",
-      active: pathname === "/dashboard/messages",
+      href: "/dashboard/customer/messages",
+      active: pathname === "/dashboard/customer/messages",
     },
     {
-      label: "Profile Settings",
+      label: "Settings",
       icon: Settings,
       href: "/dashboard/settings",
       active: pathname === "/dashboard/settings",
     },
   ];
+
+  // Contractor routes
+  const contractorRoutes = [
+    {
+      label: "Overview",
+      icon: LayoutDashboard,
+      href: "/dashboard/contractor",
+      active: pathname === "/dashboard/contractor",
+    },
+    {
+      label: "Available Jobs",
+      icon: FileText,
+      href: "/dashboard/contractor/jobs",
+      active: pathname === "/dashboard/contractor/jobs",
+    },
+    {
+      label: "My Projects",
+      icon: Briefcase,
+      href: "/dashboard/contractor/projects",
+      active: pathname === "/dashboard/contractor/projects",
+    },
+    {
+      label: "Messages",
+      icon: MessageSquare,
+      href: "/dashboard/contractor/messages",
+      active: pathname === "/dashboard/contractor/messages",
+    },
+    {
+      label: "Settings",
+      icon: Settings,
+      href: "/dashboard/settings",
+      active: pathname === "/dashboard/settings",
+    },
+  ];
+
+  // Admin routes
+  const adminRoutes = [
+    {
+      label: "Overview",
+      icon: LayoutDashboard,
+      href: "/dashboard/admin",
+      active: pathname === "/dashboard/admin",
+    },
+    {
+      label: "Users",
+      icon: Users,
+      href: "/dashboard/admin/users",
+      active: pathname === "/dashboard/admin/users",
+    },
+    {
+      label: "Projects",
+      icon: Briefcase,
+      href: "/dashboard/admin/projects",
+      active: pathname === "/dashboard/admin/projects",
+    },
+    {
+      label: "Analytics",
+      icon: BarChart3,
+      href: "/dashboard/admin/analytics",
+      active: pathname === "/dashboard/admin/analytics",
+    },
+    {
+      label: "Settings",
+      icon: Settings,
+      href: "/dashboard/settings",
+      active: pathname === "/dashboard/settings",
+    },
+  ];
+
+  // Select routes based on user type
+  const routes =
+    userType === "contractor"
+      ? contractorRoutes
+      : userType === "admin"
+      ? adminRoutes
+      : customerRoutes;
 
   return (
     <div
@@ -65,7 +161,11 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
 
       <div className="flex-1 px-4 space-y-1">
         <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider px-2 mb-4">
-          Main Menu
+          {userType === "contractor"
+            ? "Contractor Menu"
+            : userType === "admin"
+            ? "Admin Menu"
+            : "Main Menu"}
         </div>
         {routes.map((route) => (
           <Link
