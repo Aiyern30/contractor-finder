@@ -40,7 +40,9 @@ export default function AdminDashboardPage() {
 
           <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm">
             <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-zinc-400">Active Projects</p>
+              <p className="text-sm font-medium text-zinc-400">
+                Active Projects
+              </p>
               <Briefcase className="h-4 w-4 text-purple-400" />
             </div>
             <div className="text-2xl font-bold text-white">156</div>
@@ -67,8 +69,12 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="text-center py-12">
-          <h3 className="text-lg font-semibold text-white mb-2">Admin Dashboard</h3>
-          <p className="text-zinc-400">Manage users, projects, and platform settings</p>
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Admin Dashboard
+          </h3>
+          <p className="text-zinc-400">
+            Manage users, projects, and platform settings
+          </p>
         </div>
       </div>
     </div>

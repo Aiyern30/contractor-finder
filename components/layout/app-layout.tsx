@@ -68,7 +68,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           }
 
           // Check if user is trying to access wrong dashboard
-          if (!pathname.startsWith(correctPath) && !pathname.startsWith("/dashboard/settings")) {
+          if (
+            !pathname.startsWith(correctPath) &&
+            !pathname.startsWith("/dashboard/settings")
+          ) {
             router.replace(correctPath);
             return;
           }

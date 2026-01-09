@@ -118,7 +118,9 @@ export default function ContractorDashboardPage() {
             <div className="space-y-4">
               <div className="rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10 cursor-pointer">
                 <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-semibold text-white">Kitchen Renovation</h4>
+                  <h4 className="font-semibold text-white">
+                    Kitchen Renovation
+                  </h4>
                   <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded">
                     New
                   </span>
@@ -157,9 +159,7 @@ export default function ContractorDashboardPage() {
 
               <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-white">
-                    Final Review
-                  </p>
+                  <p className="text-sm font-medium text-white">Final Review</p>
                   <p className="text-xs text-zinc-500">Jan 15, 2:00 PM</p>
                 </div>
                 <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
