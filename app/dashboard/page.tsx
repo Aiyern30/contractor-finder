@@ -24,8 +24,15 @@ export default function DashboardPage() {
             Welcome back, {profile?.full_name?.split(" ")[0] || "User"}
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
-            Here's what's happening with your projects today.
+            {profile?.user_type === "contractor"
+              ? "Manage your jobs and quotes."
+              : "Here's what's happening with your projects today."}
           </p>
+          {profile?.user_type && (
+            <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-500/20 mt-2 capitalize">
+              {profile.user_type} Account
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <UserNav />
