@@ -24,10 +24,15 @@ export function GoogleSignIn({
   const handleLogin = async (role: "customer" | "contractor") => {
     try {
       setIsLoading(true);
+      const redirectTo = `${
+        process.env.NEXT_PUBLIC_SITE_URL ?? location.origin
+      }/auth/callback?role=${role}`;
+      console.log("Attempting login with redirect:", redirectTo);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${location.origin}/auth/callback?role=${role}`, // Pass role in redirect
+          redirectTo,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
