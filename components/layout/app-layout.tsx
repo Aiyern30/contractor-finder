@@ -17,25 +17,50 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      setUser(session?.user ?? null);
-      setIsInitializing(false);
-    });
+    async function checkAuth() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    // Listen for auth changes
+      if (!mounted) return;
+
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      // If user exists and we're on a protected route, check for role in raw_user_meta_data
+      if (currentUser && pathname !== "/" && pathname !== "/auth/select-role") {
+        const userType = currentUser.user_metadata?.user_type;
+
+        if (!userType) {
+          // No role found, redirect to role selection
+          router.replace("/auth/select-role");
+          setIsInitializing(false);
+          return;
+        }
+      }
+
+      setIsInitializing(false);
+    }
+
+    checkAuth();
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       const newUser = session?.user ?? null;
       setUser(newUser);
 
-      // If user logged out and not already on home page, redirect
-      if (!newUser && pathname !== "/") {
-        router.replace("/");
+      // Handle sign out
+      if (event === "SIGNED_OUT" || !newUser) {
+        if (pathname !== "/") {
+          router.replace("/");
+          // Force refresh after a brief moment
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 100);
+        }
       }
     });
 
@@ -45,14 +70,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [supabase, pathname, router]);
 
-  // Home page always renders without layout
-  const isHomePage = pathname === "/";
+  // Public pages without layout
+  const isPublicPage = pathname === "/" || pathname === "/auth/select-role";
 
-  if (isHomePage) {
+  if (isPublicPage) {
     return <>{children}</>;
   }
 
-  // Protected pages: show loading briefly, then layout or redirect
   if (isInitializing) {
     return (
       <div className="h-screen w-full bg-[#0A0A0A] flex items-center justify-center">
@@ -61,12 +85,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If no user on protected route, show nothing (redirect is happening)
   if (!user) {
+    // No user and not on public page - redirect happening
     return null;
   }
 
-  // Authenticated users get the full layout
   return (
     <div className="h-screen w-full overflow-hidden bg-[#0A0A0A] text-zinc-100 flex flex-col md:flex-row">
       {/* Mobile Top Bar */}

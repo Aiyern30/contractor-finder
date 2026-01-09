@@ -68,18 +68,18 @@ export function UserNav() {
 
   const handleSignOut = async () => {
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
-      
-      // Clear local state
+      // Clear local state immediately
       setUser(null);
       setProfile(null);
       
-      // Navigate to home
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Force hard redirect to home page
       window.location.href = "/";
     } catch (error) {
       console.error("Sign out error:", error);
-      // Force redirect even if there's an error
+      // Force redirect even on error
       window.location.href = "/";
     }
   };
