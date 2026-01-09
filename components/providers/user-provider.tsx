@@ -21,14 +21,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
-      setIsLoading(true);
+    let mounted = true;
+
+    async function getSession() {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (session?.user) {
+        if (session && mounted) {
           setUser(session.user);
 
           const { data: profile } = await supabase
@@ -37,42 +38,43 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             .eq("id", session.user.id)
             .single();
 
-          setProfile(profile);
-        } else {
-          setUser(null);
-          setProfile(null);
+          if (mounted) setProfile(profile);
         }
       } catch (error) {
-        console.error("Error loading user:", error);
+        console.error("Error loading session:", error);
       } finally {
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
-    };
+    }
 
-    getUser();
+    getSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+
+      setUser(session?.user ?? null);
       if (session?.user) {
-        setUser(session.user);
-        // Optionally refetch profile here if needed, or assume it's stable until manual update
+        // Optionally refresh profile or rely on initial fetch.
+        // For stricter consistency, we can re-fetch profile on auth change if user ID changed
+        // But for now, we'll keep it simple to ensure the UI unblocks.
         if (!profile || profile.id !== session.user.id) {
-          const { data: profileData } = await supabase
+          const { data } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", session.user.id)
             .single();
-          setProfile(profileData);
+          if (mounted) setProfile(data);
         }
       } else {
-        setUser(null);
-        setProfile(null);
+        if (mounted) setProfile(null);
       }
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [supabase]);
