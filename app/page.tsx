@@ -1,13 +1,37 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSupabase } from "@/components/providers/supabase-provider";
 import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { ArrowRight, Shield, Zap, CheckCircle } from "lucide-react";
 import { UserNav } from "@/components/layout/user-nav";
+import type { User } from "@supabase/supabase-js";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+export default function Home() {
+  const router = useRouter();
+  const { supabase } = useSupabase();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  const handleDashboardClick = () => {
+    router.push("/dashboard");
+  };
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#0A0A0A] selection:bg-indigo-500/30 font-sans">
@@ -20,8 +44,7 @@ export default async function Home() {
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-20 text-center">
-        {/* Header / Nav placeholder if needed */}
-        {session && (
+        {user && (
           <div className="absolute top-6 right-6">
             <UserNav />
           </div>
@@ -59,8 +82,11 @@ export default async function Home() {
           </p>
 
           <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-4">
-            {session ? (
-              <button className="relative flex w-full items-center justify-center gap-2 rounded-xl bg-white text-black px-8 py-4 text-sm font-bold transition-all hover:bg-zinc-200 hover:scale-[1.02] shadow-xl">
+            {user ? (
+              <button
+                className="relative flex w-full items-center justify-center gap-2 rounded-xl bg-white text-black px-8 py-4 text-sm font-bold transition-all hover:bg-zinc-200 hover:scale-[1.02] shadow-xl"
+                onClick={handleDashboardClick}
+              >
                 Go to Dashboard
                 <ArrowRight className="w-4 h-4" />
               </button>

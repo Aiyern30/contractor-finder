@@ -1,8 +1,10 @@
 "use client";
 
-import { useUser } from "@/components/providers/user-provider";
+import { useEffect, useState } from "react";
+import { useSupabase } from "@/components/providers/supabase-provider";
 import { Card } from "@/components/ui/card";
 import { UserNav } from "@/components/layout/user-nav";
+import { Profile } from "@/types";
 import {
   Activity,
   Briefcase,
@@ -13,7 +15,36 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { profile } = useUser();
+  const { supabase } = useSupabase();
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfile() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user && mounted) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        if (mounted) {
+          setProfile(data);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
 
   return (
     <div className="flex flex-col h-full">
