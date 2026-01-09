@@ -23,7 +23,7 @@ export function MobileNav() {
       {/* Overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
+          className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300"
           onClick={() => setOpen(false)}
         />
       )}
@@ -39,7 +39,7 @@ export function MobileNav() {
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-4 z-50 text-zinc-400 hover:text-white"
+            className="absolute top-4 right-4 z-10 text-zinc-400 hover:text-white"
             onClick={() => setOpen(false)}
           >
             <X className="h-5 w-5" />
