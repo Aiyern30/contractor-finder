@@ -8,7 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, X, Check, Trash2 } from "lucide-react";
+import { Loader2, Plus, X, Check, Trash2, Edit2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ServiceCategory {
   id: string;
@@ -49,6 +67,29 @@ export default function AddServicesPage() {
     []
   );
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    serviceId: string | null;
+    serviceName: string | null;
+  }>({
+    open: false,
+    serviceId: null,
+    serviceName: null,
+  });
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean;
+    service: ExistingService | null;
+  }>({
+    open: false,
+    service: null,
+  });
+  const [editForm, setEditForm] = useState({
+    priceMin: "",
+    priceMax: "",
+    description: "",
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -139,21 +180,81 @@ export default function AddServicesPage() {
     );
   };
 
-  const deleteExistingService = async (serviceId: string) => {
-    if (!confirm("Are you sure you want to remove this service?")) return;
+  const openDeleteDialog = (serviceId: string, serviceName: string) => {
+    setDeleteDialog({
+      open: true,
+      serviceId,
+      serviceName,
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog.serviceId) return;
 
     try {
       const { error } = await supabase
         .from("contractor_services")
         .delete()
-        .eq("id", serviceId);
+        .eq("id", deleteDialog.serviceId);
 
       if (error) throw error;
 
-      setExistingServices(existingServices.filter((s) => s.id !== serviceId));
+      setExistingServices(
+        existingServices.filter((s) => s.id !== deleteDialog.serviceId)
+      );
+      setDeleteDialog({ open: false, serviceId: null, serviceName: null });
     } catch (error) {
       console.error("Error deleting service:", error);
       alert("Failed to delete service.");
+    }
+  };
+
+  const openEditDialog = (service: ExistingService) => {
+    setEditForm({
+      priceMin: service.price_range_min?.toString() || "",
+      priceMax: service.price_range_max?.toString() || "",
+      description: service.description || "",
+    });
+    setEditDialog({ open: true, service });
+  };
+
+  const handleUpdateService = async () => {
+    if (!editDialog.service) return;
+
+    setIsUpdating(true);
+
+    try {
+      const { error } = await supabase
+        .from("contractor_services")
+        .update({
+          price_range_min: parseFloat(editForm.priceMin) || null,
+          price_range_max: parseFloat(editForm.priceMax) || null,
+          description: editForm.description || null,
+        })
+        .eq("id", editDialog.service.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setExistingServices(
+        existingServices.map((s) =>
+          s.id === editDialog.service!.id
+            ? {
+                ...s,
+                price_range_min: parseFloat(editForm.priceMin) || null,
+                price_range_max: parseFloat(editForm.priceMax) || null,
+                description: editForm.description || null,
+              }
+            : s
+        )
+      );
+
+      setEditDialog({ open: false, service: null });
+    } catch (error) {
+      console.error("Error updating service:", error);
+      alert("Failed to update service.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -164,6 +265,10 @@ export default function AddServicesPage() {
       )
     );
   };
+
+  const filteredCategories = categories.filter((cat) =>
+    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSubmit = async () => {
     if (selectedServices.length === 0) {
@@ -196,10 +301,6 @@ export default function AddServicesPage() {
       setIsLoading(false);
     }
   };
-
-  const filteredCategories = categories.filter((cat) =>
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] p-4 md:p-8">
@@ -241,23 +342,33 @@ export default function AddServicesPage() {
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => deleteExistingService(service.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 p-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => openEditDialog(service)}
+                        className="text-blue-400 hover:text-blue-300 p-1 hover:bg-blue-500/10 rounded"
+                        title="Edit service"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          openDeleteDialog(
+                            service.id,
+                            service.service_categories?.name || "this service"
+                          )
+                        }
+                        className="text-red-400 hover:text-red-300 p-1 hover:bg-red-500/10 rounded"
+                        title="Delete service"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                   {service.description && (
                     <p className="text-xs text-zinc-400 line-clamp-2">
                       {service.description}
                     </p>
                   )}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="h-6 w-6 rounded-full bg-green-500/10 flex items-center justify-center">
-                      <Check className="h-3 w-3 text-green-400" />
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>
@@ -467,6 +578,133 @@ export default function AddServicesPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) =>
+          setDeleteDialog({ open, serviceId: null, serviceName: null })
+        }
+      >
+        <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              Delete Service
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Are you sure you want to remove{" "}
+              <span className="font-semibold text-white">
+                {deleteDialog.serviceName}
+              </span>{" "}
+              from your services? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Service Dialog */}
+      <Dialog
+        open={editDialog.open}
+        onOpenChange={(open) => setEditDialog({ open, service: null })}
+      >
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Edit Service</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Update pricing and description for{" "}
+              {editDialog.service?.service_categories?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-zinc-300 text-sm">Min Price (RM)</Label>
+                <div className="relative mt-1.5">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">
+                    RM
+                  </span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={editForm.priceMin}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, priceMin: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white pl-11"
+                    placeholder="100.00"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-zinc-300 text-sm">Max Price (RM)</Label>
+                <div className="relative mt-1.5">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">
+                    RM
+                  </span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={editForm.priceMax}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, priceMax: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white pl-11"
+                    placeholder="500.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-zinc-300 text-sm">Description</Label>
+              <Textarea
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, description: e.target.value })
+                }
+                className="bg-white/5 border-white/10 text-white min-h-25 resize-none mt-1.5"
+                placeholder="Describe your service..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditDialog({ open: false, service: null })}
+              className="border-white/10 text-white hover:bg-white/5"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateService}
+              disabled={isUpdating}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
