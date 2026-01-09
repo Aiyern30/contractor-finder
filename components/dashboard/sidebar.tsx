@@ -6,8 +6,6 @@ import {
   Briefcase,
   MessageSquare,
   Settings,
-  PlusCircle,
-  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -49,7 +47,7 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
   return (
     <div
       className={cn(
-        "flex flex-col h-full bg-zinc-950 border-r border-white/10",
+        "flex flex-col h-full bg-zinc-950 md:border-r border-white/10",
         className
       )}
     >
