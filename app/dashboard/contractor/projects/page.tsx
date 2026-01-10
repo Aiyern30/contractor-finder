@@ -242,7 +242,40 @@ export default function ContractorProjectsPage() {
     });
   };
 
-  // MODIFIED: Save project with delayed image upload
+  const openDeleteDialog = (projectId: string, projectTitle: string) => {
+    setDeleteDialog({
+      open: true,
+      projectId,
+      projectTitle,
+    });
+  };
+
+  // IMPROVED: Better path extraction with logging
+  const getStoragePathFromUrl = (url: string): string | null => {
+    try {
+      console.log("Original URL:", url);
+
+      // Remove query parameters if any
+      const cleanUrl = url.split("?")[0];
+
+      // Extract path after '/project-images/'
+      const parts = cleanUrl.split("/project-images/");
+
+      if (parts.length === 2 && parts[1]) {
+        const path = parts[1];
+        console.log("Extracted path:", path);
+        return path;
+      }
+
+      console.error("Could not extract path from URL:", url);
+      return null;
+    } catch (error) {
+      console.error("Error parsing image URL:", error);
+      return null;
+    }
+  };
+
+  // FIXED: Save project with proper image deletion
   const handleSaveProject = async () => {
     if (!projectForm.title || !projectForm.category_id) {
       alert("Please fill in required fields");
@@ -252,7 +285,7 @@ export default function ContractorProjectsPage() {
     setIsSaving(true);
 
     try {
-      // NEW: Upload new images to bucket
+      // Upload new images to bucket
       const uploadedUrls: string[] = [];
 
       // Keep existing images that weren't removed
@@ -300,6 +333,50 @@ export default function ContractorProjectsPage() {
       };
 
       if (editingProject) {
+        // Delete removed images from storage BEFORE updating database
+        if (editingProject.images && editingProject.images.length > 0) {
+          const removedImages = editingProject.images.filter(
+            (url) => !allImageUrls.includes(url)
+          );
+
+          if (removedImages.length > 0) {
+            console.log("Images to be removed:", removedImages);
+
+            const pathsToDelete: string[] = [];
+
+            for (const imageUrl of removedImages) {
+              const path = getStoragePathFromUrl(imageUrl);
+              if (path) {
+                pathsToDelete.push(path);
+              } else {
+                console.error("Failed to extract path from URL:", imageUrl);
+              }
+            }
+
+            console.log("Storage paths to delete:", pathsToDelete);
+
+            // Delete all removed images in a single batch operation
+            if (pathsToDelete.length > 0) {
+              const { data: deleteData, error: storageError } =
+                await supabase.storage
+                  .from("project-images")
+                  .remove(pathsToDelete);
+
+              if (storageError) {
+                console.error("Storage deletion error:", storageError);
+                alert(
+                  `Warning: Failed to delete ${pathsToDelete.length} image(s) from storage. Error: ${storageError.message}`
+                );
+              } else {
+                console.log("Delete operation result:", deleteData);
+                console.log(
+                  `Successfully deleted ${pathsToDelete.length} image(s) from storage`
+                );
+              }
+            }
+          }
+        }
+
         // Update existing project
         const { error } = await supabase
           .from("contractor_projects")
@@ -307,24 +384,6 @@ export default function ContractorProjectsPage() {
           .eq("id", editingProject.id);
 
         if (error) throw error;
-
-        // NEW: Delete removed images from storage
-        if (editingProject.images) {
-          const removedImages = editingProject.images.filter(
-            (url) => !allImageUrls.includes(url)
-          );
-
-          for (const imageUrl of removedImages) {
-            try {
-              const path = imageUrl.split("/project-images/")[1];
-              if (path) {
-                await supabase.storage.from("project-images").remove([path]);
-              }
-            } catch (error) {
-              console.error("Error deleting removed image:", error);
-            }
-          }
-        }
       } else {
         // Create new project
         const { error } = await supabase
@@ -352,47 +411,77 @@ export default function ContractorProjectsPage() {
     }
   };
 
-  const openDeleteDialog = (projectId: string, projectTitle: string) => {
-    setDeleteDialog({
-      open: true,
-      projectId,
-      projectTitle,
-    });
-  };
-
+  // FIXED: Delete project with detailed logging
   const confirmDelete = async () => {
     if (!deleteDialog.projectId) return;
 
     try {
-      // Get project to delete its images
       const project = projects.find((p) => p.id === deleteDialog.projectId);
 
-      const { error } = await supabase
-        .from("contractor_projects")
-        .delete()
-        .eq("id", deleteDialog.projectId);
+      if (!project) {
+        throw new Error("Project not found");
+      }
 
-      if (error) throw error;
+      console.log("=== STARTING PROJECT DELETION ===");
+      console.log("Project ID:", project.id);
+      console.log("Project title:", project.title);
+      console.log("Number of images:", project.images?.length || 0);
 
-      // Delete images from storage
-      if (project?.images) {
+      // Delete images from storage FIRST
+      if (project.images && project.images.length > 0) {
+        console.log("Images to delete:", project.images);
+
         for (const imageUrl of project.images) {
-          try {
-            const path = imageUrl.split("/project-images/")[1];
-            if (path) {
-              await supabase.storage.from("project-images").remove([path]);
+          console.log("\n--- Processing image ---");
+          console.log("Image URL:", imageUrl);
+
+          const path = getStoragePathFromUrl(imageUrl);
+
+          if (path) {
+            console.log("Attempting to delete from storage:", path);
+
+            const { data, error } = await supabase.storage
+              .from("project-images")
+              .remove([path]);
+
+            if (error) {
+              console.error("❌ Storage deletion failed for:", path);
+              console.error("Error code:", error.name);
+              console.error("Error message:", error.message);
+              console.error("Full error:", JSON.stringify(error, null, 2));
+            } else {
+              console.log("✅ Successfully deleted:", path);
+              console.log("Delete result:", data);
             }
-          } catch (error) {
-            console.error("Error deleting image:", error);
+          } else {
+            console.error("❌ Could not extract path from URL:", imageUrl);
           }
         }
       }
 
+      // Delete the project from database
+      console.log("\n--- Deleting from database ---");
+      const { error: dbError } = await supabase
+        .from("contractor_projects")
+        .delete()
+        .eq("id", deleteDialog.projectId);
+
+      if (dbError) {
+        console.error("❌ Database deletion failed:", dbError);
+        throw dbError;
+      }
+
+      console.log("✅ Project deleted from database");
+      console.log("=== DELETION COMPLETE ===\n");
+
+      // Update UI
       setProjects(projects.filter((p) => p.id !== deleteDialog.projectId));
       setDeleteDialog({ open: false, projectId: null, projectTitle: null });
+
+      alert("Project and all images deleted successfully!");
     } catch (error) {
-      console.error("Error deleting project:", error);
-      alert("Failed to delete project");
+      console.error("❌ DELETION ERROR:", error);
+      alert(`Failed to delete project: ${error}`);
     }
   };
 
