@@ -28,10 +28,9 @@ export function ServicesList({ services }: { services: Service[] }) {
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-white">Your Services</h3>
         <Button
-          variant="outline"
           size="sm"
           onClick={() => router.push("/dashboard/contractor/services/add")}
-          className="border-white/10 text-white hover:bg-white/5"
+          className="bg-purple-500 hover:bg-purple-600 text-white border-0"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add More
