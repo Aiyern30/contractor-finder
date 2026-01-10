@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface Job {
   id: string;
@@ -20,29 +21,44 @@ export default function JobsPage() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    const fetchJobs = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-  const fetchJobs = async () => {
-    try {
-      const response = await fetch("/api/bookings");
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data);
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+
+        const response = await fetch(`/api/bookings?customerId=${user.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setJobs(data);
+        }
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-    }
-  };
+    };
 
-  const filteredJobs = jobs.filter((job) => {
-    if (filter === "all") return true;
-    if (filter === "active")
-      return ["pending", "accepted", "in-progress"].includes(job.status);
-    return job.status === filter;
-  });
+    fetchJobs();
+  }, [router]);
+
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      if (filter === "all") return true;
+      if (filter === "active")
+        return ["pending", "accepted", "in-progress"].includes(job.status);
+      return job.status === filter;
+    });
+  }, [jobs, filter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -72,7 +88,20 @@ export default function JobsPage() {
       });
 
       if (response.ok) {
-        fetchJobs();
+        // Refetch jobs
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const refreshResponse = await fetch(
+            `/api/bookings?customerId=${user.id}`
+          );
+          if (refreshResponse.ok) {
+            const data = await refreshResponse.json();
+            setJobs(data);
+          }
+        }
       } else {
         alert("Failed to cancel booking");
       }
@@ -88,6 +117,14 @@ export default function JobsPage() {
   const messageContractor = (contractorId: string) => {
     router.push(`/customer/messages?contractor=${contractorId}`);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

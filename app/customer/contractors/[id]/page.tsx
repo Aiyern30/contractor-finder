@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface ContractorProfile {
   id: string;
@@ -40,33 +41,33 @@ export default function ContractorProfilePage({
   const [bookingDescription, setBookingDescription] = useState("");
 
   useEffect(() => {
+    const fetchContractorProfile = async () => {
+      try {
+        const response = await fetch(`/api/contractors/${params.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setContractor(data);
+        }
+      } catch (error) {
+        console.error("Error fetching contractor:", error);
+      }
+    };
+
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch(`/api/contractors/${params.id}/reviews`);
+        if (response.ok) {
+          const data = await response.json();
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+      }
+    };
+
     fetchContractorProfile();
     fetchReviews();
   }, [params.id]);
-
-  const fetchContractorProfile = async () => {
-    try {
-      const response = await fetch(`/api/contractors/${params.id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setContractor(data);
-      }
-    } catch (error) {
-      console.error("Error fetching contractor:", error);
-    }
-  };
-
-  const fetchReviews = async () => {
-    try {
-      const response = await fetch(`/api/contractors/${params.id}/reviews`);
-      if (response.ok) {
-        const data = await response.json();
-        setReviews(data);
-      }
-    } catch (error) {
-      console.error("Error fetching reviews:", error);
-    }
-  };
 
   const handleBooking = async () => {
     if (!bookingDate || !bookingTime || !bookingDescription) {
@@ -75,11 +76,23 @@ export default function ContractorProfilePage({
     }
 
     try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("Please login to book a contractor");
+        router.push("/login");
+        return;
+      }
+
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contractorId: params.id,
+          customerId: user.id,
           date: bookingDate,
           time: bookingTime,
           description: bookingDescription,
@@ -91,7 +104,8 @@ export default function ContractorProfilePage({
         setShowBookingModal(false);
         router.push("/customer/jobs");
       } else {
-        alert("Failed to create booking");
+        const error = await response.json();
+        alert(`Failed to create booking: ${error.error}`);
       }
     } catch (error) {
       console.error("Error creating booking:", error);
