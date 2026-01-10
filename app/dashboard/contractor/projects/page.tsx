@@ -46,6 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface Project {
   id: string;
@@ -278,11 +279,14 @@ export default function ContractorProjectsPage() {
   // FIXED: Save project with proper image deletion
   const handleSaveProject = async () => {
     if (!projectForm.title || !projectForm.category_id) {
-      alert("Please fill in required fields");
+      toast.error("Missing Required Fields", {
+        description: "Please fill in project title and category",
+      });
       return;
     }
 
     setIsSaving(true);
+    const toastId = toast.loading("Saving project...");
 
     try {
       // Upload new images to bucket
@@ -357,21 +361,15 @@ export default function ContractorProjectsPage() {
 
             // Delete all removed images in a single batch operation
             if (pathsToDelete.length > 0) {
-              const { data: deleteData, error: storageError } =
-                await supabase.storage
-                  .from("project-images")
-                  .remove(pathsToDelete);
+              const { error: storageError } = await supabase.storage
+                .from("project-images")
+                .remove(pathsToDelete);
 
               if (storageError) {
                 console.error("Storage deletion error:", storageError);
-                alert(
-                  `Warning: Failed to delete ${pathsToDelete.length} image(s) from storage. Error: ${storageError.message}`
-                );
-              } else {
-                console.log("Delete operation result:", deleteData);
-                console.log(
-                  `Successfully deleted ${pathsToDelete.length} image(s) from storage`
-                );
+                toast.warning("Image Deletion Warning", {
+                  description: `Failed to delete ${pathsToDelete.length} image(s) from storage`,
+                });
               }
             }
           }
@@ -384,6 +382,11 @@ export default function ContractorProjectsPage() {
           .eq("id", editingProject.id);
 
         if (error) throw error;
+
+        toast.success("Project Updated!", {
+          description: "Your project has been updated successfully",
+          id: toastId,
+        });
       } else {
         // Create new project
         const { error } = await supabase
@@ -391,6 +394,11 @@ export default function ContractorProjectsPage() {
           .insert(projectData);
 
         if (error) throw error;
+
+        toast.success("Project Created!", {
+          description: "Your project has been added to your portfolio",
+          id: toastId,
+        });
       }
 
       // Clean up preview URLs
@@ -405,7 +413,10 @@ export default function ContractorProjectsPage() {
       setImagePreviews([]);
     } catch (error) {
       console.error("Error saving project:", error);
-      alert("Failed to save project");
+      toast.error("Save Failed", {
+        description: "Failed to save project. Please try again.",
+        id: toastId,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -414,6 +425,8 @@ export default function ContractorProjectsPage() {
   // FIXED: Delete project with detailed logging
   const confirmDelete = async () => {
     if (!deleteDialog.projectId) return;
+
+    const toastId = toast.loading("Deleting project...");
 
     try {
       const project = projects.find((p) => p.id === deleteDialog.projectId);
@@ -440,7 +453,7 @@ export default function ContractorProjectsPage() {
           if (path) {
             console.log("Attempting to delete from storage:", path);
 
-            const { data, error } = await supabase.storage
+            const { error } = await supabase.storage
               .from("project-images")
               .remove([path]);
 
@@ -451,7 +464,6 @@ export default function ContractorProjectsPage() {
               console.error("Full error:", JSON.stringify(error, null, 2));
             } else {
               console.log("✅ Successfully deleted:", path);
-              console.log("Delete result:", data);
             }
           } else {
             console.error("❌ Could not extract path from URL:", imageUrl);
@@ -478,10 +490,16 @@ export default function ContractorProjectsPage() {
       setProjects(projects.filter((p) => p.id !== deleteDialog.projectId));
       setDeleteDialog({ open: false, projectId: null, projectTitle: null });
 
-      alert("Project and all images deleted successfully!");
+      toast.success("Project Deleted", {
+        description: "Project and all images have been removed",
+        id: toastId,
+      });
     } catch (error) {
       console.error("❌ DELETION ERROR:", error);
-      alert(`Failed to delete project: ${error}`);
+      toast.error("Deletion Failed", {
+        description: "Failed to delete project. Please try again.",
+        id: toastId,
+      });
     }
   };
 

@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SupabaseProvider } from "@/components/providers/supabase-provider";
 import { AppLayout } from "@/components/layout/app-layout";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,17 @@ export default function RootLayout({
             <AppLayout>{children}</AppLayout>
           </SupabaseProvider>
         </ThemeProvider>
+        <Toaster
+          position="top-right"
+          theme="dark"
+          toastOptions={{
+            style: {
+              background: "#18181b",
+              border: "1px solid #27272a",
+              color: "#ffffff",
+            },
+          }}
+        />
       </body>
     </html>
   );
