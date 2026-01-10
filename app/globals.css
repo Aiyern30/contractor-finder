@@ -129,3 +129,29 @@
     transform: translateX(100%);
   }
 }
+
+::-webkit-scrollbar {
+  width: 10px;
+  background: #181028;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  border-radius: 8px;
+  border: 2px solid #181028;
+}
+
+::-webkit-scrollbar-track {
+  background: #181028;
+}
+
+/* REMOVE ARROWS */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+::-webkit-scrollbar-button:single-button {
+  display: none;
+}
