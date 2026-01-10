@@ -55,6 +55,22 @@ CREATE TABLE public.contractor_profiles (
   CONSTRAINT contractor_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT contractor_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.contractor_projects (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  contractor_id uuid NOT NULL,
+  title text NOT NULL,
+  description text,
+  category_id uuid NOT NULL,
+  completion_date date,
+  project_value numeric,
+  location text,
+  images ARRAY,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT contractor_projects_pkey PRIMARY KEY (id),
+  CONSTRAINT contractor_projects_contractor_id_fkey FOREIGN KEY (contractor_id) REFERENCES public.contractor_profiles(id),
+  CONSTRAINT contractor_projects_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id)
+);
 CREATE TABLE public.contractor_services (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   contractor_id uuid NOT NULL,

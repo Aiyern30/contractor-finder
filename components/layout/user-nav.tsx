@@ -71,10 +71,10 @@ export function UserNav() {
       // Clear local state immediately
       setUser(null);
       setProfile(null);
-      
+
       // Sign out from Supabase
       await supabase.auth.signOut();
-      
+
       // Force hard redirect to home page
       window.location.href = "/";
     } catch (error) {
@@ -118,7 +118,20 @@ export function UserNav() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+          <DropdownMenuItem
+            onClick={() => {
+              // Redirect based on user type
+              if (profile?.user_type === "contractor") {
+                router.push("/dashboard/contractor");
+              } else if (profile?.user_type === "customer") {
+                router.push("/dashboard/customer");
+              } else if (profile?.user_type === "admin") {
+                router.push("/dashboard/admin");
+              } else {
+                router.push("/dashboard");
+              }
+            }}
+          >
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Dashboard</span>
           </DropdownMenuItem>

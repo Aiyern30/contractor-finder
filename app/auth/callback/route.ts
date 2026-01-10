@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { getDashboardPath } from "@/lib/utils/redirect-by-user-type";
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -15,26 +16,18 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/?error=auth_failed`);
     }
 
-    // Check if user has user_type in raw_user_meta_data
     if (data.user) {
       const userType = data.user.user_metadata?.user_type;
 
-      // If no user_type, redirect to role selection
       if (!userType) {
         return NextResponse.redirect(`${origin}/auth/select-role`);
       }
 
-      // Redirect based on user type
-      if (userType === "homeowner") {
-        return NextResponse.redirect(`${origin}/dashboard/customer`);
-      } else if (userType === "contractor") {
-        return NextResponse.redirect(`${origin}/dashboard/contractor`);
-      } else if (userType === "admin") {
-        return NextResponse.redirect(`${origin}/dashboard/admin`);
-      }
+      // Use utility function for consistent routing
+      const dashboardPath = getDashboardPath(userType);
+      return NextResponse.redirect(`${origin}${dashboardPath}`);
     }
   }
 
-  // Default to customer dashboard
   return NextResponse.redirect(`${origin}/dashboard/customer`);
 }
