@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { Card } from "@/components/ui/card";
@@ -17,9 +17,21 @@ import {
   Filter,
   Briefcase,
   CheckCircle,
-  XCircle,
   Loader2,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 
 interface JobRequest {
   id: string;
@@ -32,6 +44,7 @@ interface JobRequest {
   urgency: string | null;
   status: string;
   created_at: string;
+  category_id: string;
   service_categories: {
     name: string;
   };
@@ -49,21 +62,35 @@ interface Quote {
   job_requests: JobRequest;
 }
 
+interface Filters {
+  urgency: string;
+  budgetMin: string;
+  budgetMax: string;
+  category: string;
+  location: string;
+  dateRange: string;
+}
+
 export default function ContractorJobsPage() {
   const { supabase } = useSupabase();
   const router = useRouter();
-  const [contractorId, setContractorId] = useState<string>("");
   const [availableJobs, setAvailableJobs] = useState<JobRequest[]>([]);
   const [myQuotes, setMyQuotes] = useState<Quote[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("available");
+  const [filters, setFilters] = useState<Filters>({
+    urgency: "all",
+    budgetMin: "",
+    budgetMax: "",
+    category: "all",
+    location: "",
+    dateRange: "all",
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const {
         data: { session },
@@ -85,8 +112,6 @@ export default function ContractorJobsPage() {
         router.push("/dashboard/contractor/setup");
         return;
       }
-
-      setContractorId(profile.id);
 
       // Load contractor's service categories
       const { data: services } = await supabase
@@ -142,12 +167,101 @@ export default function ContractorJobsPage() {
 
         setAvailableJobs(jobs || []);
       }
+
+      // Load categories for filter dropdown
+      const { data: cats } = await supabase
+        .from("service_categories")
+        .select("id, name")
+        .order("name");
+
+      setCategories(cats || []);
     } catch (error) {
       console.error("Error loading jobs:", error);
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [supabase, router]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Apply filters to jobs
+  const applyFilters = useCallback((jobs: JobRequest[]) => {
+    return jobs.filter((job) => {
+      // Search query filter
+      const matchesSearch =
+        searchQuery === "" ||
+        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        job.service_categories.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Urgency filter
+      const matchesUrgency =
+        filters.urgency === "all" || job.urgency === filters.urgency;
+
+      // Budget filter
+      const matchesBudget =
+        (filters.budgetMin === "" || (job.budget_max && job.budget_max >= parseFloat(filters.budgetMin))) &&
+        (filters.budgetMax === "" || (job.budget_min && job.budget_min <= parseFloat(filters.budgetMax)));
+
+      // Category filter
+      const matchesCategory =
+        filters.category === "all" || job.category_id === filters.category;
+
+      // Location filter
+      const matchesLocation =
+        filters.location === "" ||
+        (job.location && job.location.toLowerCase().includes(filters.location.toLowerCase()));
+
+      // Date range filter
+      const matchesDateRange = (() => {
+        if (filters.dateRange === "all" || !job.created_at) return true;
+        const jobDate = new Date(job.created_at);
+        const now = new Date();
+        const diffDays = Math.floor((now.getTime() - jobDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        switch (filters.dateRange) {
+          case "today":
+            return diffDays === 0;
+          case "week":
+            return diffDays <= 7;
+          case "month":
+            return diffDays <= 30;
+          default:
+            return true;
+        }
+      })();
+
+      return matchesSearch && matchesUrgency && matchesBudget && matchesCategory && matchesLocation && matchesDateRange;
+    });
+  }, [searchQuery, filters]);
+
+  const filteredAvailableJobs = applyFilters(availableJobs);
+
+  const filteredMyQuotes = myQuotes.filter(
+    (quote) =>
+      quote.job_requests.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      quote.job_requests.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const resetFilters = () => {
+    setFilters({
+      urgency: "all",
+      budgetMin: "",
+      budgetMax: "",
+      category: "all",
+      location: "",
+      dateRange: "all",
+    });
+  };
+
+  const activeFiltersCount = Object.entries(filters).filter(([key, value]) => {
+    if (key === "urgency" || key === "category" || key === "dateRange") {
+      return value !== "all";
+    }
+    return value !== "";
+  }).length;
 
   const getUrgencyColor = (urgency: string | null) => {
     switch (urgency) {
@@ -190,25 +304,6 @@ export default function ContractorJobsPage() {
     return "Just now";
   };
 
-  const filteredAvailableJobs = availableJobs.filter(
-    (job) =>
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.service_categories.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-  );
-
-  const filteredMyQuotes = myQuotes.filter(
-    (quote) =>
-      quote.job_requests.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      quote.job_requests.description
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-  );
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-[#0A0A0A]">
@@ -219,228 +314,335 @@ export default function ContractorJobsPage() {
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Jobs & Opportunities
-          </h1>
-          <p className="text-zinc-400">
-            Browse available jobs and manage your bids
-          </p>
-        </div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">
+          Jobs & Opportunities
+        </h1>
+        <p className="text-zinc-400">
+          Browse available jobs and manage your bids
+        </p>
+      </div>
 
-        {/* Search Bar */}
-        <Card className="p-4 bg-white/5 border-white/10 mb-6">
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
-              <Input
-                placeholder="Search jobs by title, description, or category..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-white/5 border-white/10 text-white"
-              />
-            </div>
-            <Button
-              variant="outline"
-              className="border-white/10 text-white hover:bg-white/5"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-            </Button>
+      {/* Search Bar */}
+      <Card className="p-4 bg-white/5 border-white/10 mb-6">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+            <Input
+              placeholder="Search jobs by title, description, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
+            />
           </div>
-        </Card>
+          <Popover open={showFilters} onOpenChange={setShowFilters}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500/50 hover:text-white relative"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 bg-zinc-900 border-zinc-800 text-white" align="end">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Filters</h3>
+                  {activeFiltersCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetFilters}
+                      className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
 
-        {/* Tabs */}
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-6"
-        >
-          <TabsList className="bg-white/5 border border-white/10">
-            <TabsTrigger
-              value="available"
-              className="data-[state=active]:bg-purple-500"
-            >
-              <Briefcase className="h-4 w-4 mr-2" />
-              Available Jobs ({filteredAvailableJobs.length})
-            </TabsTrigger>
-            <TabsTrigger
-              value="my-bids"
-              className="data-[state=active]:bg-purple-500"
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              My Bids ({filteredMyQuotes.length})
-            </TabsTrigger>
-          </TabsList>
+                {/* Urgency Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Urgency</Label>
+                  <Select value={filters.urgency} onValueChange={(value) => setFilters({ ...filters, urgency: value })}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                      <SelectItem value="all">All Urgencies</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="emergency">Emergency</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Available Jobs Tab */}
-          <TabsContent value="available" className="space-y-4">
-            {filteredAvailableJobs.length === 0 ? (
-              <Card className="p-12 bg-white/5 border-white/10 text-center">
-                <Briefcase className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  No Available Jobs
-                </h3>
-                <p className="text-zinc-400">
-                  Check back later for new job opportunities matching your
-                  services
+                {/* Budget Range Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Budget Range (RM)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      value={filters.budgetMin}
+                      onChange={(e) => setFilters({ ...filters, budgetMin: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      value={filters.budgetMax}
+                      onChange={(e) => setFilters({ ...filters, budgetMax: e.target.value })}
+                      className="bg-white/5 border-white/10 text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Category Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Service Category</Label>
+                  <Select value={filters.category} onValueChange={(value) => setFilters({ ...filters, category: value })}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-60">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Location Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Location</Label>
+                  <Input
+                    placeholder="Enter city or area..."
+                    value={filters.location}
+                    onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
+                  />
+                </div>
+
+                {/* Date Posted Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm text-zinc-300">Posted</Label>
+                  <Select value={filters.dateRange} onValueChange={(value) => setFilters({ ...filters, dateRange: value })}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white">
+                      <SelectItem value="all">Any Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">Past Week</SelectItem>
+                      <SelectItem value="month">Past Month</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </Card>
+
+      {/* Tabs */}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
+        <TabsList className="bg-white/5 border border-white/10">
+          <TabsTrigger
+            value="available"
+            className="data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=inactive]:text-zinc-400"
+          >
+            <Briefcase className="h-4 w-4 mr-2" />
+            Available Jobs ({filteredAvailableJobs.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="my-bids"
+            className="data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=inactive]:text-zinc-400"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            My Bids ({filteredMyQuotes.length})
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Available Jobs Tab */}
+        <TabsContent value="available" className="space-y-4">
+          {filteredAvailableJobs.length === 0 ? (
+            <Card className="p-12 bg-white/5 border-white/10 text-center">
+              <Briefcase className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">
+                No Available Jobs
+              </h3>
+              <p className="text-zinc-400">
+                Check back later for new job opportunities matching your
+                services
+              </p>
+            </Card>
+          ) : (
+            filteredAvailableJobs.map((job) => (
+              <Card
+                key={job.id}
+                className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
+                onClick={() =>
+                  router.push(`/dashboard/contractor/jobs/${job.id}`)
+                }
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-semibold text-white">
+                        {job.title}
+                      </h3>
+                      {job.urgency && (
+                        <Badge className={getUrgencyColor(job.urgency)}>
+                          {job.urgency.toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-zinc-400 mb-2">
+                      Posted by {job.profiles.full_name} •{" "}
+                      {getTimeAgo(job.created_at)}
+                    </p>
+                    <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                      {job.service_categories.name}
+                    </Badge>
+                  </div>
+                </div>
+
+                <p className="text-zinc-300 mb-4 line-clamp-2">
+                  {job.description}
                 </p>
+
+                <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
+                  {job.location && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-4 w-4" />
+                      {job.location}
+                    </div>
+                  )}
+                  {(job.budget_min || job.budget_max) && (
+                    <div className="flex items-center gap-1">
+                      <DollarSign className="h-4 w-4" />
+                      Budget: RM {job.budget_min || "0"} - RM{" "}
+                      {job.budget_max || "N/A"}
+                    </div>
+                  )}
+                  {job.preferred_date && (
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      Preferred:{" "}
+                      {new Date(job.preferred_date).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-white/10">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/dashboard/contractor/jobs/${job.id}`);
+                    }}
+                    className="bg-purple-500 hover:bg-purple-600"
+                  >
+                    View Details & Submit Quote
+                  </Button>
+                </div>
               </Card>
-            ) : (
-              filteredAvailableJobs.map((job) => (
-                <Card
-                  key={job.id}
-                  className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
-                  onClick={() =>
-                    router.push(`/dashboard/contractor/jobs/${job.id}`)
-                  }
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-white">
-                          {job.title}
-                        </h3>
-                        {job.urgency && (
-                          <Badge className={getUrgencyColor(job.urgency)}>
-                            {job.urgency.toUpperCase()}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-zinc-400 mb-2">
-                        Posted by {job.profiles.full_name} •{" "}
-                        {getTimeAgo(job.created_at)}
-                      </p>
-                      <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                        {job.service_categories.name}
+            ))
+          )}
+        </TabsContent>
+
+        {/* My Bids Tab */}
+        <TabsContent value="my-bids" className="space-y-4">
+          {filteredMyQuotes.length === 0 ? (
+            <Card className="p-12 bg-white/5 border-white/10 text-center">
+              <CheckCircle className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">
+                No Bids Yet
+              </h3>
+              <p className="text-zinc-400">
+                Start bidding on available jobs to grow your business
+              </p>
+            </Card>
+          ) : (
+            filteredMyQuotes.map((quote) => (
+              <Card
+                key={quote.id}
+                className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-semibold text-white">
+                        {quote.job_requests.title}
+                      </h3>
+                      <Badge className={getStatusColor(quote.status)}>
+                        {quote.status.toUpperCase()}
                       </Badge>
                     </div>
+                    <p className="text-sm text-zinc-400">
+                      Quote submitted {getTimeAgo(quote.created_at)}
+                    </p>
                   </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-green-400">
+                      RM {quote.quoted_price.toLocaleString()}
+                    </p>
+                    {quote.estimated_duration && (
+                      <p className="text-sm text-zinc-400 flex items-center gap-1 justify-end mt-1">
+                        <Clock className="h-4 w-4" />
+                        {quote.estimated_duration}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-                  <p className="text-zinc-300 mb-4 line-clamp-2">
-                    {job.description}
-                  </p>
+                <p className="text-zinc-300 mb-4 line-clamp-2">
+                  {quote.job_requests.description}
+                </p>
 
-                  <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
-                    {job.location && (
+                <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                  <div className="flex gap-4 text-sm text-zinc-400">
+                    {quote.job_requests.location && (
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
-                        {job.location}
+                        {quote.job_requests.location}
                       </div>
                     )}
-                    {(job.budget_min || job.budget_max) && (
-                      <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
-                        Budget: RM {job.budget_min || "0"} - RM{" "}
-                        {job.budget_max || "N/A"}
-                      </div>
-                    )}
-                    {job.preferred_date && (
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        Preferred:{" "}
-                        {new Date(job.preferred_date).toLocaleDateString()}
-                      </div>
-                    )}
+                    <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                      {quote.job_requests.service_categories.name}
+                    </Badge>
                   </div>
-
-                  <div className="mt-4 pt-4 border-t border-white/10">
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/dashboard/contractor/jobs/${job.id}`);
-                      }}
-                      className="bg-purple-500 hover:bg-purple-600"
-                    >
-                      View Details & Submit Quote
-                    </Button>
-                  </div>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-
-          {/* My Bids Tab */}
-          <TabsContent value="my-bids" className="space-y-4">
-            {filteredMyQuotes.length === 0 ? (
-              <Card className="p-12 bg-white/5 border-white/10 text-center">
-                <CheckCircle className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  No Bids Yet
-                </h3>
-                <p className="text-zinc-400">
-                  Start bidding on available jobs to grow your business
-                </p>
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/contractor/jobs/${quote.job_requests.id}`
+                      )
+                    }
+                    className="border-white/10 text-white hover:bg-white/5"
+                  >
+                    View Details
+                  </Button>
+                </div>
               </Card>
-            ) : (
-              filteredMyQuotes.map((quote) => (
-                <Card
-                  key={quote.id}
-                  className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-white">
-                          {quote.job_requests.title}
-                        </h3>
-                        <Badge className={getStatusColor(quote.status)}>
-                          {quote.status.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-zinc-400">
-                        Quote submitted {getTimeAgo(quote.created_at)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-green-400">
-                        RM {quote.quoted_price.toLocaleString()}
-                      </p>
-                      {quote.estimated_duration && (
-                        <p className="text-sm text-zinc-400 flex items-center gap-1 justify-end mt-1">
-                          <Clock className="h-4 w-4" />
-                          {quote.estimated_duration}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-zinc-300 mb-4 line-clamp-2">
-                    {quote.job_requests.description}
-                  </p>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                    <div className="flex gap-4 text-sm text-zinc-400">
-                      {quote.job_requests.location && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
-                          {quote.job_requests.location}
-                        </div>
-                      )}
-                      <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                        {quote.job_requests.service_categories.name}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        router.push(
-                          `/dashboard/contractor/jobs/${quote.job_requests.id}`
-                        )
-                      }
-                      className="border-white/10 text-white hover:bg-white/5"
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                </Card>
-              ))
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+            ))
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

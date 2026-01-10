@@ -155,3 +155,12 @@
 ::-webkit-scrollbar-button:single-button {
   display: none;
 }
+
+/* Custom tab styling for better purple visibility */
+[data-state="inactive"] {
+  color: #71717a !important;
+}
+
+[data-state="active"] {
+  color: #ffffff !important;
+}
