@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   Briefcase,
   MessageSquare,
-  Settings,
   Users,
   FileText,
   BarChart3,
@@ -56,12 +55,6 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
       href: "/dashboard/customer/messages",
       active: pathname === "/dashboard/customer/messages",
     },
-    {
-      label: "Settings",
-      icon: Settings,
-      href: "/dashboard/settings",
-      active: pathname === "/dashboard/settings",
-    },
   ];
 
   // Contractor routes
@@ -90,12 +83,6 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
       href: "/dashboard/contractor/messages",
       active: pathname === "/dashboard/contractor/messages",
     },
-    {
-      label: "Settings",
-      icon: Settings,
-      href: "/dashboard/settings",
-      active: pathname === "/dashboard/settings",
-    },
   ];
 
   // Admin routes
@@ -123,12 +110,6 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
       icon: BarChart3,
       href: "/dashboard/admin/analytics",
       active: pathname === "/dashboard/admin/analytics",
-    },
-    {
-      label: "Settings",
-      icon: Settings,
-      href: "/dashboard/settings",
-      active: pathname === "/dashboard/settings",
     },
   ];
 

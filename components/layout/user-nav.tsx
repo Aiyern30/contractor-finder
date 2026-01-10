@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { useRouter } from "next/navigation";
-import { User, LogOut, LayoutDashboard, Settings } from "lucide-react";
+import { User, LogOut, LayoutDashboard } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 export function UserNav() {
@@ -115,10 +115,6 @@ export function UserNav() {
           >
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/settings")}>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

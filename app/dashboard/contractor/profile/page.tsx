@@ -372,7 +372,10 @@ export default function ContractorProfilePage() {
                 <h2 className="text-xl font-bold text-white mb-1">
                   {displayName}
                 </h2>
-                <p className="text-sm text-zinc-400 mb-3">{user.email}</p>
+                <p className="text-sm text-zinc-400 mb-1">{user.email}</p>
+                <p className="text-xs text-zinc-500 mb-3">
+                  {contractorProfile.business_name}
+                </p>
                 <Badge className={getStatusColor(contractorProfile.status)}>
                   {contractorProfile.status.toUpperCase()}
                 </Badge>
@@ -391,13 +394,17 @@ export default function ContractorProfilePage() {
                     <span className="text-sm text-zinc-400">Rating</span>
                   </div>
                   <span className="text-lg font-semibold text-white">
-                    {contractorProfile.avg_rating.toFixed(1)} / 5.0
+                    {contractorProfile.avg_rating > 0
+                      ? contractorProfile.avg_rating.toFixed(1)
+                      : "N/A"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Briefcase className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm text-zinc-400">Total Jobs</span>
+                    <span className="text-sm text-zinc-400">
+                      Completed Jobs
+                    </span>
                   </div>
                   <span className="text-lg font-semibold text-white">
                     {contractorProfile.total_jobs}
@@ -406,21 +413,26 @@ export default function ContractorProfilePage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Award className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm text-zinc-400">Reviews</span>
+                    <span className="text-sm text-zinc-400">Total Reviews</span>
                   </div>
                   <span className="text-lg font-semibold text-white">
                     {contractorProfile.total_reviews}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-green-400" />
-                    <span className="text-sm text-zinc-400">Experience</span>
+                {contractorProfile.years_experience && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-green-400" />
+                      <span className="text-sm text-zinc-400">Experience</span>
+                    </div>
+                    <span className="text-lg font-semibold text-white">
+                      {contractorProfile.years_experience}{" "}
+                      {contractorProfile.years_experience === 1
+                        ? "year"
+                        : "years"}
+                    </span>
                   </div>
-                  <span className="text-lg font-semibold text-white">
-                    {contractorProfile.years_experience || 0} years
-                  </span>
-                </div>
+                )}
               </div>
             </Card>
 
@@ -482,7 +494,7 @@ export default function ContractorProfilePage() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Full Name *
+                    Full Name
                   </Label>
                   {isEditMode ? (
                     <Input
@@ -496,17 +508,6 @@ export default function ContractorProfilePage() {
                   ) : (
                     <p className="text-white">{displayName}</p>
                   )}
-                </div>
-
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    Email
-                  </Label>
-                  <p className="text-white">{user.email}</p>
-                  <span className="text-xs text-zinc-500">
-                    Cannot be changed
-                  </span>
                 </div>
 
                 <div>
@@ -528,6 +529,17 @@ export default function ContractorProfilePage() {
                       {user.user_metadata?.phone || "Not provided"}
                     </p>
                   )}
+                </div>
+
+                <div>
+                  <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    Email
+                  </Label>
+                  <p className="text-white">{user.email}</p>
+                  <span className="text-xs text-zinc-500">
+                    Cannot be changed
+                  </span>
                 </div>
 
                 <div>
@@ -602,6 +614,8 @@ export default function ContractorProfilePage() {
                     {isEditMode ? (
                       <Input
                         type="number"
+                        min="0"
+                        max="100"
                         value={formData.years_experience}
                         onChange={(e) =>
                           setFormData({
@@ -614,7 +628,13 @@ export default function ContractorProfilePage() {
                       />
                     ) : (
                       <p className="text-white">
-                        {contractorProfile.years_experience || "Not specified"}
+                        {contractorProfile.years_experience
+                          ? `${contractorProfile.years_experience} ${
+                              contractorProfile.years_experience === 1
+                                ? "year"
+                                : "years"
+                            }`
+                          : "Not specified"}
                       </p>
                     )}
                   </div>
@@ -752,6 +772,8 @@ export default function ContractorProfilePage() {
                   {isEditMode ? (
                     <Input
                       type="number"
+                      min="0"
+                      step="0.01"
                       value={formData.hourly_rate}
                       onChange={(e) =>
                         setFormData({
@@ -760,12 +782,12 @@ export default function ContractorProfilePage() {
                         })
                       }
                       className="bg-white/5 border-white/10 text-white"
-                      placeholder="150"
+                      placeholder="150.00"
                     />
                   ) : (
                     <p className="text-white">
                       {contractorProfile.hourly_rate
-                        ? `RM ${contractorProfile.hourly_rate}/hour`
+                        ? `RM ${contractorProfile.hourly_rate.toFixed(2)}/hour`
                         : "Not specified"}
                     </p>
                   )}
@@ -778,6 +800,8 @@ export default function ContractorProfilePage() {
                   {isEditMode ? (
                     <Input
                       type="number"
+                      min="0"
+                      step="0.01"
                       value={formData.min_project_size}
                       onChange={(e) =>
                         setFormData({
@@ -786,12 +810,12 @@ export default function ContractorProfilePage() {
                         })
                       }
                       className="bg-white/5 border-white/10 text-white"
-                      placeholder="500"
+                      placeholder="500.00"
                     />
                   ) : (
                     <p className="text-white">
                       {contractorProfile.min_project_size
-                        ? `RM ${contractorProfile.min_project_size}`
+                        ? `RM ${contractorProfile.min_project_size.toFixed(2)}`
                         : "Not specified"}
                     </p>
                   )}
