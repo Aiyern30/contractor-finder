@@ -525,7 +525,7 @@ export default function ContractorJobsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] p-4 md:p-8">
+    <div className="min-h-screen bg-[#0A0A0A] p-4 md:p-8 flex flex-col">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">
@@ -756,7 +756,7 @@ export default function ContractorJobsPage() {
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-6"
+        className="space-y-6 flex flex-col flex-1"
       >
         <TabsList className="bg-white/5 border border-white/10">
           <TabsTrigger
@@ -776,23 +776,23 @@ export default function ContractorJobsPage() {
         </TabsList>
 
         {/* Available Jobs Tab */}
-        <TabsContent value="available" className="space-y-4">
+        <TabsContent value="available" className="space-y-4 flex-1 flex">
           {isSearching && availableJobs.length === 0 ? (
             <Card className="p-12 bg-white/5 border-white/10 text-center">
               <Loader2 className="h-12 w-12 animate-spin text-purple-500 mx-auto mb-4" />
               <p className="text-zinc-400">Searching for jobs...</p>
             </Card>
           ) : availableJobs.length === 0 ? (
-            <Card className="p-12 bg-white/5 border-white/10 text-center">
-              <Briefcase className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                No Available Jobs
-              </h3>
-              <p className="text-zinc-400">
-                {searchQuery || activeFiltersCount > 0
-                  ? "No jobs match your search criteria. Try adjusting your filters."
-                  : "Check back later for new job opportunities matching your services"}
-              </p>
+            <Card className="flex-1 bg-white/5 border-white/10 flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <Briefcase className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  No Available Jobs
+                </h3>
+                <p className="text-zinc-400">
+                  No jobs match your search criteria.
+                </p>
+              </div>
             </Card>
           ) : (
             availableJobs.map((job) => (
@@ -869,18 +869,20 @@ export default function ContractorJobsPage() {
         </TabsContent>
 
         {/* My Bids Tab */}
-        <TabsContent value="my-bids" className="space-y-4">
+        <TabsContent value="my-bids" className="space-y-4 flex-1 flex">
           {myQuotes.length === 0 ? (
-            <Card className="p-12 bg-white/5 border-white/10 text-center">
-              <CheckCircle className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                No Bids Yet
-              </h3>
-              <p className="text-zinc-400">
-                {searchQuery
-                  ? "No bids match your search."
-                  : "Start bidding on available jobs to grow your business"}
-              </p>
+            <Card className="flex-1 bg-white/5 border-white/10 flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <CheckCircle className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  No Bids Yet
+                </h3>
+                <p className="text-zinc-400">
+                  {searchQuery
+                    ? "No bids match your search."
+                    : "Start bidding on available jobs to grow your business"}
+                </p>
+              </div>
             </Card>
           ) : (
             myQuotes.map((quote) => (
