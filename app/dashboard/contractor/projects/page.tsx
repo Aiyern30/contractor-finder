@@ -4,21 +4,19 @@ import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
-import { Card } from "@/components/ui/card";
+import { ContractorLayout } from "@/components/layout/contractor-layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
-  Plus,
-  Edit2,
-  Trash2,
-  Loader2,
-  Image as ImageIcon,
-  X,
+  Badge,
   Calendar,
   DollarSign,
+  Edit2,
+  ImageIcon,
+  Loader2,
+  Plus,
+  Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -38,7 +36,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -46,7 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Project {
   id: string;
@@ -526,376 +527,376 @@ export default function ContractorProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] p-4 md:p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">
-            My Projects Portfolio
-          </h1>
-          <p className="text-zinc-400">
-            Showcase your completed work to attract more customers
-          </p>
-        </div>
+    <ContractorLayout
+      title="My Projects Portfolio"
+      description="Showcase your completed work to attract more customers"
+      badge={{ text: `${projects.length} Projects`, variant: "purple" }}
+      actions={
         <Button
           onClick={openAddDialog}
           className="bg-purple-500 hover:bg-purple-600 text-white"
+          size="sm"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Project
+          <Plus className="h-4 w-4 md:mr-2" />
+          <span className="hidden md:inline">Add Project</span>
         </Button>
-      </div>
-
-      {/* Projects Grid */}
-      {projects.length === 0 ? (
-        <Card className="p-12 bg-white/5 border-white/10 text-center">
-          <ImageIcon className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-white mb-2">
-            No Projects Yet
-          </h3>
-          <p className="text-zinc-400 mb-4">
-            Start building your portfolio by adding your completed projects
-          </p>
-          <Button
-            onClick={openAddDialog}
-            className="bg-purple-500 hover:bg-purple-600 text-white"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Your First Project
-          </Button>
-        </Card>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="group bg-white/5 border-white/10 overflow-hidden hover:bg-white/10 transition-all cursor-pointer"
-              onClick={() =>
-                router.push(`/dashboard/contractor/projects/${project.id}`)
-              }
-            >
-              {/* Project Image */}
-              <div className="relative aspect-video bg-zinc-800 overflow-hidden">
-                {project.images && project.images.length > 0 ? (
-                  <Image
-                    src={project.images[0]}
-                    alt={project.title}
-                    fill
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <ImageIcon className="h-12 w-12 text-zinc-600" />
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openEditDialog(project);
-                    }}
-                    className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDeleteDialog(project.id, project.title);
-                    }}
-                    className="p-2 bg-red-500 hover:bg-red-600 rounded-lg text-white"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Project Info */}
-              <div className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-white line-clamp-1">
-                    {project.title}
-                  </h3>
-                  <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 shrink-0 ml-2">
-                    {project.service_categories.name}
-                  </Badge>
-                </div>
-
-                <p className="text-sm text-zinc-400 mb-3 line-clamp-2">
-                  {project.description}
-                </p>
-
-                <div className="flex flex-col gap-2 text-xs text-zinc-500">
-                  {project.completion_date && (
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      Completed:{" "}
-                      {new Date(project.completion_date).toLocaleDateString()}
-                    </div>
-                  )}
-                  {project.project_value && (
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
-                      Value: RM {project.project_value.toLocaleString()}
-                    </div>
-                  )}
-                  {project.location && (
-                    <div className="text-zinc-500">📍 {project.location}</div>
-                  )}
-                </div>
-
-                {project.images && project.images.length > 1 && (
-                  <div className="mt-3 text-xs text-zinc-500">
-                    +{project.images.length - 1} more photo
-                    {project.images.length - 1 > 1 ? "s" : ""}
-                  </div>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Add/Edit Project Dialog */}
-      <Dialog open={showDialog} onOpenChange={handleDialogClose}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-white">
-              {editingProject ? "Edit Project" : "Add New Project"}
-            </DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              {editingProject
-                ? "Update your project details"
-                : "Add a completed project to your portfolio"}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* Title */}
-            <div>
-              <Label className="text-zinc-300">Project Title *</Label>
-              <Input
-                value={projectForm.title}
-                onChange={(e) =>
-                  setProjectForm({ ...projectForm, title: e.target.value })
-                }
-                placeholder="e.g., Modern Kitchen Renovation"
-                className="mt-1.5 bg-white/5 border-white/10 text-white"
-              />
-            </div>
-
-            {/* Category */}
-            <div>
-              <Label className="text-zinc-300">Service Category *</Label>
-              <Select
-                value={projectForm.category_id}
-                onValueChange={(value) =>
-                  setProjectForm({
-                    ...projectForm,
-                    category_id: value,
-                  })
-                }
-              >
-                <SelectTrigger className="mt-1.5 bg-white/5 border-white/10 text-white">
-                  <SelectValue placeholder="Select category..." />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-800">
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Description */}
-            <div>
-              <Label className="text-zinc-300">Description</Label>
-              <Textarea
-                value={projectForm.description}
-                onChange={(e) =>
-                  setProjectForm({
-                    ...projectForm,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Describe the project, challenges, and solutions..."
-                className="mt-1.5 bg-white/5 border-white/10 text-white min-h-24"
-              />
-            </div>
-
-            {/* Date and Value */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-zinc-300">Completion Date</Label>
-                <Input
-                  type="date"
-                  value={projectForm.completion_date}
-                  onChange={(e) =>
-                    setProjectForm({
-                      ...projectForm,
-                      completion_date: e.target.value,
-                    })
-                  }
-                  className="mt-1.5 bg-white/5 border-white/10 text-white"
-                />
-              </div>
-              <div>
-                <Label className="text-zinc-300">Project Value (RM)</Label>
-                <Input
-                  type="number"
-                  value={projectForm.project_value}
-                  onChange={(e) =>
-                    setProjectForm({
-                      ...projectForm,
-                      project_value: e.target.value,
-                    })
-                  }
-                  placeholder="5000"
-                  className="mt-1.5 bg-white/5 border-white/10 text-white"
-                />
-              </div>
-            </div>
-
-            {/* Location */}
-            <div>
-              <Label className="text-zinc-300">Location</Label>
-              <Input
-                value={projectForm.location}
-                onChange={(e) =>
-                  setProjectForm({ ...projectForm, location: e.target.value })
-                }
-                placeholder="City or area"
-                className="mt-1.5 bg-white/5 border-white/10 text-white"
-              />
-            </div>
-
-            {/* Images - MODIFIED */}
-            <div>
-              <Label className="text-zinc-300">Project Images</Label>
-
-              {/* Upload Button */}
-              <div className="mt-1.5 space-y-2">
-                <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white/5 border-2 border-white/10 border-dashed rounded-lg appearance-none cursor-pointer hover:border-purple-500/50 hover:bg-white/10">
-                  <div className="flex flex-col items-center space-y-2">
-                    <Upload className="h-8 w-8 text-zinc-400" />
-                    <span className="text-sm text-zinc-400">
-                      Click to select images
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      PNG, JPG, WEBP up to 10MB (will upload on save)
-                    </span>
-                  </div>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              {/* Image Previews */}
-              {imagePreviews.length > 0 && (
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  {imagePreviews.map((img) => (
-                    <div key={img.id} className="relative group aspect-square">
-                      <Image
-                        src={img.preview}
-                        alt="Preview"
-                        fill
-                        className="object-cover rounded-lg"
-                      />
-                      {/* Badge for new images */}
-                      {!img.isExisting && (
-                        <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded">
-                          New
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeImagePreview(img.id)}
-                        className="absolute top-1 right-1 p-1.5 bg-red-500 hover:bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3 text-white" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {imagePreviews.length > 0 && (
-                <p className="text-xs text-zinc-500 mt-2">
-                  {imagePreviews.filter((img) => !img.isExisting).length} new
-                  image(s) will be uploaded when you save
-                </p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
+      }
+    >
+      <div className="p-4 md:p-8">
+        {/* Projects Grid */}
+        {projects.length === 0 ? (
+          <Card className="p-12 bg-white/5 border-white/10 text-center">
+            <ImageIcon className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">
+              No Projects Yet
+            </h3>
+            <p className="text-zinc-400 mb-4">
+              Start building your portfolio by adding your completed projects
+            </p>
             <Button
-              variant="outline"
-              onClick={() => handleDialogClose(false)}
-              className="border-white/10 text-white hover:bg-white/5"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveProject}
-              disabled={isSaving}
+              onClick={openAddDialog}
               className="bg-purple-500 hover:bg-purple-600 text-white"
             >
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving & Uploading...
-                </>
-              ) : (
-                "Save Project"
-              )}
+              <Plus className="h-4 w-4 mr-2" />
+              Add Your First Project
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </Card>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {projects.map((project) => (
+              <Card
+                key={project.id}
+                className="group bg-white/5 border-white/10 overflow-hidden hover:bg-white/10 transition-all cursor-pointer"
+                onClick={() =>
+                  router.push(`/dashboard/contractor/projects/${project.id}`)
+                }
+              >
+                {/* Project Image */}
+                <div className="relative aspect-video bg-zinc-800 overflow-hidden">
+                  {project.images && project.images.length > 0 ? (
+                    <Image
+                      src={project.images[0]}
+                      alt={project.title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <ImageIcon className="h-12 w-12 text-zinc-600" />
+                    </div>
+                  )}
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={deleteDialog.open}
-        onOpenChange={(open) =>
-          setDeleteDialog({ open, projectId: null, projectTitle: null })
-        }
-      >
-        <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
-              Delete Project
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              Are you sure you want to delete{" "}
-              <span className="font-semibold text-white">
-                {deleteDialog.projectTitle}
-              </span>
-              ? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-red-500 hover:bg-red-600 text-white"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+                  {/* Action Buttons */}
+                  <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(project);
+                      }}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteDialog(project.id, project.title);
+                      }}
+                      className="p-2 bg-red-500 hover:bg-red-600 rounded-lg text-white"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Project Info */}
+                <div className="p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-white line-clamp-1">
+                      {project.title}
+                    </h3>
+                    <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 shrink-0 ml-2">
+                      {project.service_categories.name}
+                    </Badge>
+                  </div>
+
+                  <p className="text-sm text-zinc-400 mb-3 line-clamp-2">
+                    {project.description}
+                  </p>
+
+                  <div className="flex flex-col gap-2 text-xs text-zinc-500">
+                    {project.completion_date && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Completed:{" "}
+                        {new Date(project.completion_date).toLocaleDateString()}
+                      </div>
+                    )}
+                    {project.project_value && (
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        Value: RM {project.project_value.toLocaleString()}
+                      </div>
+                    )}
+                    {project.location && (
+                      <div className="text-zinc-500">📍 {project.location}</div>
+                    )}
+                  </div>
+
+                  {project.images && project.images.length > 1 && (
+                    <div className="mt-3 text-xs text-zinc-500">
+                      +{project.images.length - 1} more photo
+                      {project.images.length - 1 > 1 ? "s" : ""}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Add/Edit Project Dialog */}
+        <Dialog open={showDialog} onOpenChange={handleDialogClose}>
+          <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-white">
+                {editingProject ? "Edit Project" : "Add New Project"}
+              </DialogTitle>
+              <DialogDescription className="text-zinc-400">
+                {editingProject
+                  ? "Update your project details"
+                  : "Add a completed project to your portfolio"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* Title */}
+              <div>
+                <Label className="text-zinc-300">Project Title *</Label>
+                <Input
+                  value={projectForm.title}
+                  onChange={(e) =>
+                    setProjectForm({ ...projectForm, title: e.target.value })
+                  }
+                  placeholder="e.g., Modern Kitchen Renovation"
+                  className="mt-1.5 bg-white/5 border-white/10 text-white"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <Label className="text-zinc-300">Service Category *</Label>
+                <Select
+                  value={projectForm.category_id}
+                  onValueChange={(value) =>
+                    setProjectForm({
+                      ...projectForm,
+                      category_id: value,
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1.5 bg-white/5 border-white/10 text-white">
+                    <SelectValue placeholder="Select category..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800">
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label className="text-zinc-300">Description</Label>
+                <Textarea
+                  value={projectForm.description}
+                  onChange={(e) =>
+                    setProjectForm({
+                      ...projectForm,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Describe the project, challenges, and solutions..."
+                  className="mt-1.5 bg-white/5 border-white/10 text-white min-h-24"
+                />
+              </div>
+
+              {/* Date and Value */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-zinc-300">Completion Date</Label>
+                  <Input
+                    type="date"
+                    value={projectForm.completion_date}
+                    onChange={(e) =>
+                      setProjectForm({
+                        ...projectForm,
+                        completion_date: e.target.value,
+                      })
+                    }
+                    className="mt-1.5 bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-zinc-300">Project Value (RM)</Label>
+                  <Input
+                    type="number"
+                    value={projectForm.project_value}
+                    onChange={(e) =>
+                      setProjectForm({
+                        ...projectForm,
+                        project_value: e.target.value,
+                      })
+                    }
+                    placeholder="5000"
+                    className="mt-1.5 bg-white/5 border-white/10 text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Location */}
+              <div>
+                <Label className="text-zinc-300">Location</Label>
+                <Input
+                  value={projectForm.location}
+                  onChange={(e) =>
+                    setProjectForm({ ...projectForm, location: e.target.value })
+                  }
+                  placeholder="City or area"
+                  className="mt-1.5 bg-white/5 border-white/10 text-white"
+                />
+              </div>
+
+              {/* Images - MODIFIED */}
+              <div>
+                <Label className="text-zinc-300">Project Images</Label>
+
+                {/* Upload Button */}
+                <div className="mt-1.5 space-y-2">
+                  <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white/5 border-2 border-white/10 border-dashed rounded-lg appearance-none cursor-pointer hover:border-purple-500/50 hover:bg-white/10">
+                    <div className="flex flex-col items-center space-y-2">
+                      <Upload className="h-8 w-8 text-zinc-400" />
+                      <span className="text-sm text-zinc-400">
+                        Click to select images
+                      </span>
+                      <span className="text-xs text-zinc-500">
+                        PNG, JPG, WEBP up to 10MB (will upload on save)
+                      </span>
+                    </div>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Image Previews */}
+                {imagePreviews.length > 0 && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {imagePreviews.map((img) => (
+                      <div
+                        key={img.id}
+                        className="relative group aspect-square"
+                      >
+                        <Image
+                          src={img.preview}
+                          alt="Preview"
+                          fill
+                          className="object-cover rounded-lg"
+                        />
+                        {/* Badge for new images */}
+                        {!img.isExisting && (
+                          <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded">
+                            New
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImagePreview(img.id)}
+                          className="absolute top-1 right-1 p-1.5 bg-red-500 hover:bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3 text-white" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {imagePreviews.length > 0 && (
+                  <p className="text-xs text-zinc-500 mt-2">
+                    {imagePreviews.filter((img) => !img.isExisting).length} new
+                    image(s) will be uploaded when you save
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => handleDialogClose(false)}
+                className="border-white/10 text-white hover:bg-white/5"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveProject}
+                disabled={isSaving}
+                className="bg-purple-500 hover:bg-purple-600 text-white"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving & Uploading...
+                  </>
+                ) : (
+                  "Save Project"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) =>
+            setDeleteDialog({ open, projectId: null, projectTitle: null })
+          }
+        >
+          <AlertDialogContent className="bg-zinc-900 border-zinc-800 text-white">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">
+                Delete Project
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-zinc-400">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-white">
+                  {deleteDialog.projectTitle}
+                </span>
+                ? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </ContractorLayout>
   );
 }

@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
+import { ContractorLayout } from "@/components/layout/contractor-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UserNav } from "@/components/layout/user-nav";
 import { Profile } from "@/types";
 import { StatsGrid } from "@/components/dashboard/contractor/stats-grid";
 import { ServicesList } from "@/components/dashboard/contractor/services-list";
@@ -20,6 +20,7 @@ export default function ContractorDashboardPage() {
   const [contractorProfile, setContractorProfile] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("User");
 
   useEffect(() => {
     let mounted = true;
@@ -30,6 +31,13 @@ export default function ContractorDashboardPage() {
       } = await supabase.auth.getSession();
 
       if (session?.user && mounted) {
+        // Get name from metadata
+        const displayName =
+          session.user.user_metadata?.full_name ||
+          session.user.email?.split("@")[0] ||
+          "User";
+        setUserName(displayName.split(" ")[0]);
+
         // Load user profile
         const { data: userProfile } = await supabase
           .from("profiles")
@@ -101,26 +109,12 @@ export default function ContractorDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Top Header */}
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-6 backdrop-blur-sm">
-        <div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-zinc-400">
-            Welcome back, {profile?.full_name?.split(" ")[0] || "User"}
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Manage your jobs, quotes, and grow your business
-          </p>
-          <span className="inline-flex items-center rounded-full bg-purple-500/10 px-2 py-1 text-xs font-medium text-purple-400 ring-1 ring-inset ring-purple-500/20 mt-2">
-            Contractor Account
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <UserNav />
-        </div>
-      </header>
-
-      <div className="flex-1 p-8 space-y-8">
+    <ContractorLayout
+      title={`Welcome back, ${userName}`}
+      description="Manage your jobs, quotes, and grow your business"
+      badge={{ text: "Contractor Account", variant: "purple" }}
+    >
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         {/* Profile Completion Alert */}
         {profileCompletion < 100 && (
           <Card className="p-6 bg-linear-to-r from-purple-500/10 to-indigo-500/10 border-purple-500/20">
@@ -164,6 +158,6 @@ export default function ContractorDashboardPage() {
           )}
         </div>
       </div>
-    </div>
+    </ContractorLayout>
   );
 }

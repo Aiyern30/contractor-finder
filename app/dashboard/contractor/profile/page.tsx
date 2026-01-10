@@ -3,20 +3,17 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { useSupabase } from "@/components/providers/supabase-provider";
-import { Card } from "@/components/ui/card";
+import { ContractorLayout } from "@/components/layout/contractor-layout";
 import { Button } from "@/components/ui/button";
+import { Edit2, Save, X, Loader2, MapPin } from "lucide-react";
+import Image from "next/image";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2,
-  Edit2,
-  Save,
-  X,
-  MapPin,
   Phone,
   Mail,
   DollarSign,
@@ -274,81 +271,81 @@ export default function ContractorProfilePage() {
 
   if (!user || !contractorProfile) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-8 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">
-            Profile Not Found
-          </h1>
-          <Button onClick={() => router.push("/dashboard/contractor")}>
-            Back to Dashboard
-          </Button>
+      <ContractorLayout
+        title="Profile Not Found"
+        description="Unable to load profile information"
+      >
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-white mb-4">
+              Profile Not Found
+            </h2>
+            <Button onClick={() => router.push("/dashboard/contractor")}>
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
-      </div>
+      </ContractorLayout>
     );
   }
 
   const displayName =
     user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
-  const avatarUrl = user.user_metadata?.avatar_url;
+
+  const headerActions = isEditMode ? (
+    <>
+      <Button
+        onClick={cancelEdit}
+        variant="outline"
+        size="sm"
+        disabled={isSaving}
+        className="hidden sm:flex"
+      >
+        <X className="h-4 w-4 mr-2" />
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSave}
+        disabled={isSaving}
+        size="sm"
+        className="bg-purple-500 hover:bg-purple-600"
+      >
+        {isSaving ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <Save className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Save</span>
+          </>
+        )}
+      </Button>
+    </>
+  ) : (
+    <Button
+      onClick={() => setIsEditMode(true)}
+      size="sm"
+      className="bg-blue-500 hover:bg-blue-600"
+    >
+      <Edit2 className="h-4 w-4 md:mr-2" />
+      <span className="hidden md:inline">Edit Profile</span>
+    </Button>
+  );
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-white/10">
-        <div className="p-4 md:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">
-                My Profile
-              </h1>
-              <p className="text-sm md:text-base text-zinc-400">
-                Manage your contractor profile and settings
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {isEditMode ? (
-                <>
-                  <Button
-                    onClick={cancelEdit}
-                    variant="outline"
-                    size="sm"
-                    disabled={isSaving}
-                    className="hidden sm:flex"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    size="sm"
-                    className="bg-purple-500 hover:bg-purple-600"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 md:mr-2" />
-                        <span className="hidden md:inline">Save</span>
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  onClick={() => setIsEditMode(true)}
-                  size="sm"
-                  className="bg-blue-500 hover:bg-blue-600"
-                >
-                  <Edit2 className="h-4 w-4 md:mr-2" />
-                  <span className="hidden md:inline">Edit Profile</span>
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <ContractorLayout
+      title="My Profile"
+      description="Manage your contractor profile and settings"
+      badge={{
+        text: contractorProfile.status.toUpperCase(),
+        variant:
+          contractorProfile.status === "approved"
+            ? "green"
+            : contractorProfile.status === "pending"
+            ? "yellow"
+            : "red",
+      }}
+      actions={headerActions}
+    >
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Column - Quick Stats */}
@@ -356,9 +353,9 @@ export default function ContractorProfilePage() {
             {/* Profile Card */}
             <Card className="p-6 bg-white/5 border-white/10">
               <div className="text-center">
-                {avatarUrl ? (
+                {user.user_metadata?.avatar_url ? (
                   <Image
-                    src={avatarUrl}
+                    src={user.user_metadata.avatar_url}
                     alt={displayName}
                     width={96}
                     height={96}
@@ -893,6 +890,6 @@ export default function ContractorProfilePage() {
           </div>
         </div>
       </div>
-    </div>
+    </ContractorLayout>
   );
 }

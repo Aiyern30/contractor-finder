@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
-import { Card } from "@/components/ui/card";
+import { ContractorLayout } from "@/components/layout/contractor-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
 
 interface Project {
   id: string;
@@ -417,90 +418,101 @@ export default function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-8 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">
-            Project Not Found
-          </h1>
-          <Button onClick={() => router.push("/dashboard/contractor/projects")}>
-            Back to Projects
-          </Button>
+      <ContractorLayout
+        title="Project Not Found"
+        description="Unable to load project details"
+      >
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-white mb-4">
+              Project Not Found
+            </h2>
+            <Button
+              onClick={() => router.push("/dashboard/contractor/projects")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Projects
+            </Button>
+          </div>
         </div>
-      </div>
+      </ContractorLayout>
     );
   }
 
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => router.push("/dashboard/contractor/projects")}
+      >
+        <ArrowLeft className="h-4 w-4 md:mr-2" />
+        <span className="hidden md:inline">Back</span>
+      </Button>
+      {isEditMode ? (
+        <>
+          <Button
+            onClick={cancelEdit}
+            variant="outline"
+            size="sm"
+            disabled={isSaving}
+            className="hidden sm:flex"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            size="sm"
+            className="bg-purple-500 hover:bg-purple-600"
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Save className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Save</span>
+              </>
+            )}
+          </Button>
+        </>
+      ) : (
+        <>
+          <Button
+            onClick={() => setIsEditMode(true)}
+            size="sm"
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            <Edit2 className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Edit</span>
+          </Button>
+          <Button
+            onClick={() => setDeleteDialog(true)}
+            size="sm"
+            className="bg-red-500 hover:bg-red-600"
+          >
+            <Trash2 className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Delete</span>
+          </Button>
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
-      {/* Mobile-friendly Header */}
-      <div className="sticky top-0 z-10 bg-[#0A0A0A]/95 backdrop-blur-sm border-b border-white/10">
-        <div className="p-4 md:p-6">
-          <div className="flex items-center justify-between gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push("/dashboard/contractor/projects")}
-              className="shrink-0"
-            >
-              <ArrowLeft className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Back</span>
-            </Button>
-
-            <div className="flex gap-2">
-              {isEditMode ? (
-                <>
-                  <Button
-                    onClick={cancelEdit}
-                    variant="outline"
-                    size="sm"
-                    disabled={isSaving}
-                    className="hidden sm:flex"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    size="sm"
-                    className="bg-purple-500 hover:bg-purple-600"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 md:mr-2" />
-                        <span className="hidden md:inline">Save</span>
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    onClick={() => setIsEditMode(true)}
-                    size="sm"
-                    className="bg-blue-500 hover:bg-blue-600"
-                  >
-                    <Edit2 className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Edit</span>
-                  </Button>
-                  <Button
-                    onClick={() => setDeleteDialog(true)}
-                    size="sm"
-                    className="bg-red-500 hover:bg-red-600"
-                  >
-                    <Trash2 className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Delete</span>
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 md:p-8 ">
+    <ContractorLayout
+      title={project.title}
+      description={project.service_categories.name}
+      badge={{
+        text: `${imagePreviews.length} Image${
+          imagePreviews.length !== 1 ? "s" : ""
+        }`,
+        variant: "blue",
+      }}
+      actions={headerActions}
+    >
+      <div className="p-4 md:p-8 max-w-7xl mx-auto">
         {/* Project Title */}
         <div className="mb-6">
           {isEditMode ? (
@@ -909,6 +921,6 @@ export default function ProjectDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ContractorLayout>
   );
 }
