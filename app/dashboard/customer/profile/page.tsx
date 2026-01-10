@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -75,8 +77,12 @@ export default function CustomerProfilePage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="text-sm text-zinc-400 block mb-1">Full Name</label>
-                <p className="text-white">{profile?.full_name || "Not provided"}</p>
+                <label className="text-sm text-zinc-400 block mb-1">
+                  Full Name
+                </label>
+                <p className="text-white">
+                  {profile?.full_name || "Not provided"}
+                </p>
               </div>
 
               <div>

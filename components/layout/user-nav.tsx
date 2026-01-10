@@ -16,13 +16,11 @@ import { useSupabase } from "@/components/providers/supabase-provider";
 import { useRouter } from "next/navigation";
 import { User, LogOut, LayoutDashboard, Settings } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
-import { Profile } from "@/types";
 
 export function UserNav() {
   const { supabase } = useSupabase();
   const router = useRouter();
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     async function loadUserData() {
@@ -32,14 +30,6 @@ export function UserNav() {
 
       if (session?.user) {
         setUser(session.user);
-
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
-        setProfile(data);
       }
     }
 
@@ -48,19 +38,8 @@ export function UserNav() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-        setProfile(data);
-      } else {
-        setProfile(null);
-      }
     });
 
     return () => subscription.unsubscribe();
@@ -68,39 +47,31 @@ export function UserNav() {
 
   const handleSignOut = async () => {
     try {
-      // Clear local state immediately
       setUser(null);
-      setProfile(null);
-
-      // Sign out from Supabase
       await supabase.auth.signOut();
-
-      // Force hard redirect to home page
       window.location.href = "/";
     } catch (error) {
       console.error("Sign out error:", error);
-      // Force redirect even on error
       window.location.href = "/";
     }
   };
 
   if (!user) return null;
 
+  // Get user type directly from auth metadata
+  const userType = user.user_metadata?.user_type || "customer";
+  const displayName =
+    user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+  const avatarUrl = user.user_metadata?.avatar_url;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10 border border-white/10">
-            <AvatarImage
-              src={profile?.avatar_url || user.user_metadata?.avatar_url}
-              alt={profile?.full_name || "User"}
-            />
+            <AvatarImage src={avatarUrl} alt={displayName} />
             <AvatarFallback>
-              {(
-                profile?.full_name?.[0] ||
-                user.email?.[0] ||
-                "U"
-              ).toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -108,34 +79,40 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {profile?.full_name || "User"}
-            </p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
+            <p className="text-xs text-purple-400 capitalize">{userType}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem
             onClick={() => {
-              // Redirect based on user type
-              if (profile?.user_type === "contractor") {
-                router.push("/dashboard/contractor");
-              } else if (profile?.user_type === "customer") {
-                router.push("/dashboard/customer");
-              } else if (profile?.user_type === "admin") {
-                router.push("/dashboard/admin");
-              } else {
-                router.push("/dashboard");
-              }
+              const path =
+                userType === "contractor"
+                  ? "/dashboard/contractor"
+                  : userType === "admin"
+                  ? "/dashboard/admin"
+                  : "/dashboard/customer";
+              router.push(path);
             }}
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
             <span>Dashboard</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/profile")}>
+          <DropdownMenuItem
+            onClick={() => {
+              const path =
+                userType === "contractor"
+                  ? "/dashboard/contractor/profile"
+                  : userType === "admin"
+                  ? "/dashboard/admin/profile"
+                  : "/dashboard/customer/profile";
+              router.push(path);
+            }}
+          >
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </DropdownMenuItem>

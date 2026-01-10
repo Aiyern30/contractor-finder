@@ -21,20 +21,16 @@ export default function ProfileRedirectPage() {
           return;
         }
 
-        // Get user profile to check user_type
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("user_type")
-          .eq("id", session.user.id)
-          .single();
+        // Get user type directly from auth metadata
+        const userType = session.user.user_metadata?.user_type;
 
-        if (!profile) {
+        if (!userType) {
           router.push("/auth/select-role");
           return;
         }
 
         // Redirect based on user type
-        switch (profile.user_type) {
+        switch (userType) {
           case "contractor":
             router.push("/dashboard/contractor/profile");
             break;

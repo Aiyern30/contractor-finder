@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useSupabase } from "@/components/providers/supabase-provider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,15 +53,6 @@ interface ContractorProfile {
   created_at: string;
 }
 
-interface Profile {
-  id: string;
-  email: string;
-  full_name: string;
-  phone: string | null;
-  avatar_url: string | null;
-  user_type: string;
-}
-
 interface ContractorService {
   id: string;
   category_id: string;
@@ -79,7 +72,8 @@ export default function ContractorProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  const [profile, setProfile] = useState<Profile | null>(null);
+  // Only need contractor profile and auth user
+  const [user, setUser] = useState<any>(null);
   const [contractorProfile, setContractorProfile] =
     useState<ContractorProfile | null>(null);
   const [services, setServices] = useState<ContractorService[]>([]);
@@ -110,15 +104,17 @@ export default function ContractorProfilePage() {
         return;
       }
 
-      // Load user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single();
+      // Check user type from auth metadata
+      const userType = session.user.user_metadata?.user_type;
+      if (userType !== "contractor") {
+        toast.error("Access Denied", {
+          description: "This page is only for contractors",
+        });
+        router.push("/dashboard");
+        return;
+      }
 
-      if (profileError) throw profileError;
-      setProfile(profileData);
+      setUser(session.user);
 
       // Load contractor profile
       const { data: contractorData, error: contractorError } = await supabase
@@ -129,7 +125,6 @@ export default function ContractorProfilePage() {
 
       if (contractorError) {
         if (contractorError.code === "PGRST116") {
-          // No contractor profile found, redirect to setup
           router.push("/dashboard/contractor/setup");
           return;
         }
@@ -141,20 +136,15 @@ export default function ContractorProfilePage() {
       // Load contractor services
       const { data: servicesData } = await supabase
         .from("contractor_services")
-        .select(
-          `
-          *,
-          service_categories (name)
-        `
-        )
+        .select(`*, service_categories (name)`)
         .eq("contractor_id", contractorData.id);
 
       setServices((servicesData as ContractorService[]) || []);
 
-      // Set form data
+      // Set form data from auth user metadata and contractor profile
       setFormData({
-        full_name: profileData.full_name || "",
-        phone: profileData.phone || "",
+        full_name: session.user.user_metadata?.full_name || "",
+        phone: session.user.user_metadata?.phone || "",
         business_name: contractorData.business_name || "",
         bio: contractorData.bio || "",
         years_experience: contractorData.years_experience?.toString() || "",
@@ -181,22 +171,21 @@ export default function ContractorProfilePage() {
   }, [loadData]);
 
   const handleSave = async () => {
-    if (!profile || !contractorProfile) return;
+    if (!user || !contractorProfile) return;
 
     setIsSaving(true);
     const toastId = toast.loading("Saving profile...");
 
     try {
-      // Update user profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
+      // Update auth user metadata (for name and phone)
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
           full_name: formData.full_name,
           phone: formData.phone,
-        })
-        .eq("id", profile.id);
+        },
+      });
 
-      if (profileError) throw profileError;
+      if (updateError) throw updateError;
 
       // Update contractor profile
       const { error: contractorError } = await supabase
@@ -242,11 +231,11 @@ export default function ContractorProfilePage() {
   };
 
   const cancelEdit = () => {
-    if (!profile || !contractorProfile) return;
+    if (!user || !contractorProfile) return;
 
     setFormData({
-      full_name: profile.full_name || "",
-      phone: profile.phone || "",
+      full_name: user.user_metadata?.full_name || "",
+      phone: user.user_metadata?.phone || "",
       business_name: contractorProfile.business_name || "",
       bio: contractorProfile.bio || "",
       years_experience: contractorProfile.years_experience?.toString() || "",
@@ -283,7 +272,7 @@ export default function ContractorProfilePage() {
     );
   }
 
-  if (!profile || !contractorProfile) {
+  if (!user || !contractorProfile) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] p-8 flex items-center justify-center">
         <div className="text-center">
@@ -297,6 +286,10 @@ export default function ContractorProfilePage() {
       </div>
     );
   }
+
+  const displayName =
+    user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+  const avatarUrl = user.user_metadata?.avatar_url;
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -363,13 +356,23 @@ export default function ContractorProfilePage() {
             {/* Profile Card */}
             <Card className="p-6 bg-white/5 border-white/10">
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-3xl font-bold">
-                  {profile.full_name.charAt(0).toUpperCase()}
-                </div>
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
+                    alt={displayName}
+                    width={96}
+                    height={96}
+                    className="w-24 h-24 mx-auto mb-4 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-3xl font-bold">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <h2 className="text-xl font-bold text-white mb-1">
-                  {profile.full_name}
+                  {displayName}
                 </h2>
-                <p className="text-sm text-zinc-400 mb-3">{profile.email}</p>
+                <p className="text-sm text-zinc-400 mb-3">{user.email}</p>
                 <Badge className={getStatusColor(contractorProfile.status)}>
                   {contractorProfile.status.toUpperCase()}
                 </Badge>
@@ -491,7 +494,7 @@ export default function ContractorProfilePage() {
                       placeholder="Your full name"
                     />
                   ) : (
-                    <p className="text-white">{profile.full_name}</p>
+                    <p className="text-white">{displayName}</p>
                   )}
                 </div>
 
@@ -500,7 +503,7 @@ export default function ContractorProfilePage() {
                     <Mail className="h-3 w-3" />
                     Email
                   </Label>
-                  <p className="text-white">{profile.email}</p>
+                  <p className="text-white">{user.email}</p>
                   <span className="text-xs text-zinc-500">
                     Cannot be changed
                   </span>
@@ -522,7 +525,7 @@ export default function ContractorProfilePage() {
                     />
                   ) : (
                     <p className="text-white">
-                      {profile.phone || "Not provided"}
+                      {user.user_metadata?.phone || "Not provided"}
                     </p>
                   )}
                 </div>
@@ -532,7 +535,7 @@ export default function ContractorProfilePage() {
                     Account Type
                   </Label>
                   <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                    {profile.user_type.toUpperCase()}
+                    CONTRACTOR
                   </Badge>
                 </div>
               </div>
