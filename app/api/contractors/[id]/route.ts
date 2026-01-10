@@ -15,9 +15,11 @@ const supabaseAdmin = createClient(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const { data: contractor, error } = await supabaseAdmin
       .from("contractor_profiles")
       .select(
@@ -52,7 +54,7 @@ export async function GET(
         )
       `
       )
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error || !contractor) {

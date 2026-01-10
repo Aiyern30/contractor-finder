@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { use } from "react";
 
 interface ContractorProfile {
   id: string;
@@ -30,9 +31,10 @@ interface Review {
 export default function ContractorProfilePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
+  const resolvedParams = use(params); // Unwrap the Promise
   const [contractor, setContractor] = useState<ContractorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -43,7 +45,7 @@ export default function ContractorProfilePage({
   useEffect(() => {
     const fetchContractorProfile = async () => {
       try {
-        const response = await fetch(`/api/contractors/${params.id}`);
+        const response = await fetch(`/api/contractors/${resolvedParams.id}`);
         if (response.ok) {
           const data = await response.json();
           setContractor(data);
@@ -55,7 +57,9 @@ export default function ContractorProfilePage({
 
     const fetchReviews = async () => {
       try {
-        const response = await fetch(`/api/contractors/${params.id}/reviews`);
+        const response = await fetch(
+          `/api/contractors/${resolvedParams.id}/reviews`
+        );
         if (response.ok) {
           const data = await response.json();
           setReviews(data);
@@ -67,7 +71,7 @@ export default function ContractorProfilePage({
 
     fetchContractorProfile();
     fetchReviews();
-  }, [params.id]);
+  }, [resolvedParams.id]);
 
   const handleBooking = async () => {
     if (!bookingDate || !bookingTime || !bookingDescription) {
@@ -91,7 +95,7 @@ export default function ContractorProfilePage({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contractorId: params.id,
+          contractorId: resolvedParams.id,
           customerId: user.id,
           date: bookingDate,
           time: bookingTime,
@@ -114,7 +118,7 @@ export default function ContractorProfilePage({
   };
 
   const startMessage = () => {
-    router.push(`/customer/messages?contractor=${params.id}`);
+    router.push(`/customer/messages?contractor=${resolvedParams.id}`);
   };
 
   if (!contractor) {

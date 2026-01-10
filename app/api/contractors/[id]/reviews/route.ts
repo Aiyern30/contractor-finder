@@ -15,9 +15,11 @@ const supabaseAdmin = createClient(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const { data: reviews, error } = await supabaseAdmin
       .from("reviews")
       .select(
@@ -32,7 +34,7 @@ export async function GET(
         )
       `
       )
-      .eq("contractor_id", params.id)
+      .eq("contractor_id", id)
       .order("created_at", { ascending: false })
       .returns<ReviewWithDetails[]>();
 
