@@ -13,11 +13,24 @@ const supabaseAdmin = createClient(
   }
 );
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log("Fetching contractors...");
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search");
+    const specialty = searchParams.get("specialty");
+    const location = searchParams.get("location");
+    const maxRate = searchParams.get("maxRate");
+    const minRating = searchParams.get("minRating");
 
-    const { data: contractors, error } = await supabaseAdmin
+    console.log("Fetching contractors with filters:", {
+      search,
+      specialty,
+      location,
+      maxRate,
+      minRating,
+    });
+
+    let query = supabaseAdmin
       .from("contractor_profiles")
       .select(
         `
@@ -37,11 +50,31 @@ export async function GET() {
         ),
         contractor_services (
           service_categories (
+            id,
             name
           )
         )
       `
       );
+
+    // Apply filters
+    if (search) {
+      query = query.or(`business_name.ilike.%${search}%`);
+    }
+
+    if (location) {
+      query = query.or(`city.ilike.%${location}%,state.ilike.%${location}%`);
+    }
+
+    if (maxRate) {
+      query = query.lte("hourly_rate", parseFloat(maxRate));
+    }
+
+    if (minRating) {
+      query = query.gte("avg_rating", parseFloat(minRating));
+    }
+
+    const { data: contractors, error } = await query;
 
     if (error) {
       console.error("Supabase error:", error);
@@ -50,19 +83,29 @@ export async function GET() {
 
     console.log("Contractors fetched:", contractors?.length || 0);
 
-    const formattedContractors =
-      contractors?.map((c: any) => ({
-        id: c.id,
-        name: c.business_name,
-        email: c.profiles?.email || "",
-        phone: c.profiles?.phone || "",
-        specialty:
-          c.contractor_services?.[0]?.service_categories?.name || "General",
-        location: `${c.city || ""}, ${c.state || ""}`.trim(),
-        rating: c.avg_rating || 0,
-        reviewCount: c.total_reviews || 0,
-        hourlyRate: c.hourly_rate || 0,
-      })) || [];
+    // Filter by specialty on the application side since it's in a related table
+    let filteredContractors = contractors || [];
+
+    if (specialty) {
+      filteredContractors = filteredContractors.filter((c: any) =>
+        c.contractor_services?.some(
+          (s: any) => s.service_categories?.name === specialty
+        )
+      );
+    }
+
+    const formattedContractors = filteredContractors.map((c: any) => ({
+      id: c.id,
+      name: c.business_name,
+      email: c.profiles?.email || "",
+      phone: c.profiles?.phone || "",
+      specialty:
+        c.contractor_services?.[0]?.service_categories?.name || "General",
+      location: `${c.city || ""}, ${c.state || ""}`.trim(),
+      rating: c.avg_rating || 0,
+      reviewCount: c.total_reviews || 0,
+      hourlyRate: c.hourly_rate || 0,
+    }));
 
     return NextResponse.json(formattedContractors);
   } catch (error) {

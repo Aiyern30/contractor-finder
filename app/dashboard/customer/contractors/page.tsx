@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/user-nav";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search, MapPin, DollarSign, Star, Loader2 } from "lucide-react";
+import { debounce } from "lodash";
 
 interface Contractor {
   id: string;
@@ -21,9 +29,15 @@ interface Contractor {
   avatar?: string;
 }
 
+interface Specialty {
+  id: string;
+  name: string;
+}
+
 export default function ContractorsPage() {
   const router = useRouter();
   const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("");
@@ -31,71 +45,74 @@ export default function ContractorsPage() {
   const [maxRate, setMaxRate] = useState("");
   const [minRating, setMinRating] = useState("");
 
+  // Fetch specialties on mount
   useEffect(() => {
-    const fetchContractors = async () => {
+    const fetchSpecialties = async () => {
       try {
-        const response = await fetch("/api/contractors");
+        const response = await fetch("/api/contractors/specialties");
         if (response.ok) {
           const data = await response.json();
-          setContractors(data);
+          setSpecialties(data);
         }
       } catch (error) {
-        console.error("Error fetching contractors:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching specialties:", error);
       }
     };
 
-    fetchContractors();
+    fetchSpecialties();
   }, []);
 
-  const filteredContractors = useMemo(() => {
-    let filtered = contractors;
+  // Debounced fetch function (define once, not inside useCallback)
+  const debouncedFetch = debounce(
+    (filters: {
+      search: string;
+      specialty: string;
+      location: string;
+      maxRate: string;
+      minRating: string;
+    }) => {
+      setLoading(true);
+      (async () => {
+        try {
+          const params = new URLSearchParams();
+          if (filters.search) params.append("search", filters.search);
+          if (filters.specialty) params.append("specialty", filters.specialty);
+          if (filters.location) params.append("location", filters.location);
+          if (filters.maxRate) params.append("maxRate", filters.maxRate);
+          if (filters.minRating) params.append("minRating", filters.minRating);
 
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (c) =>
-          c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.specialty.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+          const response = await fetch(
+            `/api/contractors?${params.toString()}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setContractors(data);
+          }
+        } catch (error) {
+          console.error("Error fetching contractors:", error);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    },
+    500
+  );
 
-    if (specialtyFilter) {
-      filtered = filtered.filter((c) => c.specialty === specialtyFilter);
-    }
-
-    if (locationFilter) {
-      filtered = filtered.filter((c) =>
-        c.location.toLowerCase().includes(locationFilter.toLowerCase())
-      );
-    }
-
-    if (maxRate) {
-      filtered = filtered.filter((c) => c.hourlyRate <= parseFloat(maxRate));
-    }
-
-    if (minRating) {
-      filtered = filtered.filter((c) => c.rating >= parseFloat(minRating));
-    }
-
-    return filtered;
-  }, [
-    contractors,
-    searchTerm,
-    specialtyFilter,
-    locationFilter,
-    maxRate,
-    minRating,
-  ]);
+  // Fetch contractors when filters change
+  useEffect(() => {
+    debouncedFetch({
+      search: searchTerm,
+      specialty: specialtyFilter,
+      location: locationFilter,
+      maxRate,
+      minRating,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, specialtyFilter, locationFilter, maxRate, minRating]);
 
   const viewProfile = (contractorId: string) => {
     router.push(`/dashboard/customer/contractors/${contractorId}`);
   };
-
-  // Get unique specialties for filter
-  const specialties = Array.from(
-    new Set(contractors.map((c) => c.specialty).filter(Boolean))
-  );
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -113,56 +130,66 @@ export default function ContractorsPage() {
         {/* Search and Filters */}
         <Card className="p-6 bg-white/5 border-white/10 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-2.5 h-5 w-5 text-zinc-500" />
               <Input
                 type="text"
-                placeholder="Search by name or specialty..."
+                placeholder="Search by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
+                className="pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
               />
             </div>
-            <select
-              value={specialtyFilter}
-              onChange={(e) => setSpecialtyFilter(e.target.value)}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-            >
-              <option value="" className="bg-zinc-900">
-                All Specialties
-              </option>
-              {specialties.map((specialty) => (
-                <option
-                  key={specialty}
-                  value={specialty}
-                  className="bg-zinc-900"
-                >
-                  {specialty}
-                </option>
-              ))}
-            </select>
+
+            {/* Specialty Select */}
+            <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+              <SelectTrigger className="h-11 bg-white/5 border-white/10 text-white">
+                <SelectValue placeholder="All Specialties" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-white/10">
+                <SelectItem value="all" className="text-white">
+                  All Specialties
+                </SelectItem>
+                {specialties.map((specialty) => (
+                  <SelectItem
+                    key={specialty.id}
+                    value={specialty.name}
+                    className="text-white"
+                  >
+                    {specialty.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Location Input */}
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <MapPin className="absolute left-3 top-2.5 h-5 w-5 text-zinc-500" />
               <Input
                 type="text"
                 placeholder="Location"
                 value={locationFilter}
                 onChange={(e) => setLocationFilter(e.target.value)}
-                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
+                className="pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
               />
             </div>
+
+            {/* Max Rate Input */}
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <DollarSign className="absolute left-3 top-2.5 h-5 w-5 text-zinc-500" />
               <Input
                 type="number"
                 placeholder="Max Rate (RM/hr)"
                 value={maxRate}
                 onChange={(e) => setMaxRate(e.target.value)}
-                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
+                className="pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
               />
             </div>
+
+            {/* Min Rating Input */}
             <div className="relative">
-              <Star className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Star className="absolute left-3 top-2.5 h-5 w-5 text-zinc-500" />
               <Input
                 type="number"
                 placeholder="Min Rating"
@@ -171,7 +198,7 @@ export default function ContractorsPage() {
                 min="0"
                 max="5"
                 step="0.5"
-                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
+                className="pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
               />
             </div>
           </div>
@@ -183,12 +210,12 @@ export default function ContractorsPage() {
             {loading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Loading contractors...
+                Searching contractors...
               </span>
             ) : (
               <>
-                {filteredContractors.length} contractor
-                {filteredContractors.length !== 1 ? "s" : ""} found
+                {contractors.length} contractor
+                {contractors.length !== 1 ? "s" : ""} found
               </>
             )}
           </p>
@@ -199,7 +226,7 @@ export default function ContractorsPage() {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
           </div>
-        ) : filteredContractors.length === 0 ? (
+        ) : contractors.length === 0 ? (
           <Card className="p-12 bg-white/5 border-white/10 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 mb-4">
               <Search className="h-8 w-8 text-purple-400" />
@@ -213,7 +240,7 @@ export default function ContractorsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredContractors.map((contractor) => (
+            {contractors.map((contractor) => (
               <Card
                 key={contractor.id}
                 className="group p-6 bg-white/5 border-white/10 hover:bg-white/10 hover:border-purple-500/50 transition-all cursor-pointer"
