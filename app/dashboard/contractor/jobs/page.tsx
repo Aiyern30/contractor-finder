@@ -96,25 +96,7 @@ export default function ContractorJobsPage() {
 
       const categoryIds = services?.map((s) => s.category_id) || [];
 
-      if (categoryIds.length > 0) {
-        // Load available jobs matching contractor's services
-        const { data: jobs } = await supabase
-          .from("job_requests")
-          .select(
-            `
-            *,
-            service_categories (name),
-            profiles (full_name)
-          `
-          )
-          .eq("status", "open")
-          .in("category_id", categoryIds)
-          .order("created_at", { ascending: false });
-
-        setAvailableJobs(jobs || []);
-      }
-
-      // Load contractor's quotes/bids
+      // Load contractor's quotes/bids first
       const { data: quotes } = await supabase
         .from("quotes")
         .select(
@@ -131,6 +113,35 @@ export default function ContractorJobsPage() {
         .order("created_at", { ascending: false });
 
       setMyQuotes(quotes || []);
+
+      // Get job IDs that contractor has already quoted on
+      const quotedJobIds = quotes?.map((q) => q.job_request_id) || [];
+
+      if (categoryIds.length > 0) {
+        // Load available jobs matching contractor's services
+        // EXCLUDE jobs they've already quoted on
+        let query = supabase
+          .from("job_requests")
+          .select(
+            `
+            *,
+            service_categories (name),
+            profiles (full_name)
+          `
+          )
+          .eq("status", "open")
+          .in("category_id", categoryIds)
+          .order("created_at", { ascending: false });
+
+        // Only add the not-in filter if there are quoted jobs
+        if (quotedJobIds.length > 0) {
+          query = query.not("id", "in", `(${quotedJobIds.join(",")})`);
+        }
+
+        const { data: jobs } = await query;
+
+        setAvailableJobs(jobs || []);
+      }
     } catch (error) {
       console.error("Error loading jobs:", error);
     } finally {
@@ -183,13 +194,19 @@ export default function ContractorJobsPage() {
     (job) =>
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.service_categories.name.toLowerCase().includes(searchQuery.toLowerCase())
+      job.service_categories.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
   const filteredMyQuotes = myQuotes.filter(
     (quote) =>
-      quote.job_requests.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      quote.job_requests.description.toLowerCase().includes(searchQuery.toLowerCase())
+      quote.job_requests.title
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      quote.job_requests.description
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {
@@ -205,7 +222,9 @@ export default function ContractorJobsPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Jobs & Opportunities</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Jobs & Opportunities
+          </h1>
           <p className="text-zinc-400">
             Browse available jobs and manage your bids
           </p>
@@ -223,7 +242,10 @@ export default function ContractorJobsPage() {
                 className="pl-10 bg-white/5 border-white/10 text-white"
               />
             </div>
-            <Button variant="outline" className="border-white/10 text-white hover:bg-white/5">
+            <Button
+              variant="outline"
+              className="border-white/10 text-white hover:bg-white/5"
+            >
               <Filter className="h-4 w-4 mr-2" />
               Filters
             </Button>
@@ -231,13 +253,23 @@ export default function ContractorJobsPage() {
         </Card>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-6"
+        >
           <TabsList className="bg-white/5 border border-white/10">
-            <TabsTrigger value="available" className="data-[state=active]:bg-purple-500">
+            <TabsTrigger
+              value="available"
+              className="data-[state=active]:bg-purple-500"
+            >
               <Briefcase className="h-4 w-4 mr-2" />
               Available Jobs ({filteredAvailableJobs.length})
             </TabsTrigger>
-            <TabsTrigger value="my-bids" className="data-[state=active]:bg-purple-500">
+            <TabsTrigger
+              value="my-bids"
+              className="data-[state=active]:bg-purple-500"
+            >
               <CheckCircle className="h-4 w-4 mr-2" />
               My Bids ({filteredMyQuotes.length})
             </TabsTrigger>
@@ -252,7 +284,8 @@ export default function ContractorJobsPage() {
                   No Available Jobs
                 </h3>
                 <p className="text-zinc-400">
-                  Check back later for new job opportunities matching your services
+                  Check back later for new job opportunities matching your
+                  services
                 </p>
               </Card>
             ) : (
@@ -260,7 +293,9 @@ export default function ContractorJobsPage() {
                 <Card
                   key={job.id}
                   className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
-                  onClick={() => router.push(`/dashboard/contractor/jobs/${job.id}`)}
+                  onClick={() =>
+                    router.push(`/dashboard/contractor/jobs/${job.id}`)
+                  }
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
@@ -275,7 +310,8 @@ export default function ContractorJobsPage() {
                         )}
                       </div>
                       <p className="text-sm text-zinc-400 mb-2">
-                        Posted by {job.profiles.full_name} • {getTimeAgo(job.created_at)}
+                        Posted by {job.profiles.full_name} •{" "}
+                        {getTimeAgo(job.created_at)}
                       </p>
                       <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
                         {job.service_categories.name}
@@ -304,7 +340,8 @@ export default function ContractorJobsPage() {
                     {job.preferred_date && (
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        Preferred: {new Date(job.preferred_date).toLocaleDateString()}
+                        Preferred:{" "}
+                        {new Date(job.preferred_date).toLocaleDateString()}
                       </div>
                     )}
                   </div>
@@ -389,7 +426,9 @@ export default function ContractorJobsPage() {
                     <Button
                       variant="outline"
                       onClick={() =>
-                        router.push(`/dashboard/contractor/jobs/${quote.job_requests.id}`)
+                        router.push(
+                          `/dashboard/contractor/jobs/${quote.job_requests.id}`
+                        )
                       }
                       className="border-white/10 text-white hover:bg-white/5"
                     >
