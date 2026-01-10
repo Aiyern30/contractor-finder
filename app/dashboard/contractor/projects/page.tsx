@@ -551,7 +551,10 @@ export default function ContractorProjectsPage() {
           {projects.map((project) => (
             <Card
               key={project.id}
-              className="group bg-white/5 border-white/10 overflow-hidden hover:bg-white/10 transition-all"
+              className="group bg-white/5 border-white/10 overflow-hidden hover:bg-white/10 transition-all cursor-pointer"
+              onClick={() =>
+                router.push(`/dashboard/contractor/projects/${project.id}`)
+              }
             >
               {/* Project Image */}
               <div className="relative aspect-video bg-zinc-800 overflow-hidden">
@@ -571,13 +574,19 @@ export default function ContractorProjectsPage() {
                 {/* Action Buttons */}
                 <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => openEditDialog(project)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditDialog(project);
+                    }}
                     className="p-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white"
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => openDeleteDialog(project.id, project.title)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDeleteDialog(project.id, project.title);
+                    }}
                     className="p-2 bg-red-500 hover:bg-red-600 rounded-lg text-white"
                   >
                     <Trash2 className="h-4 w-4" />
