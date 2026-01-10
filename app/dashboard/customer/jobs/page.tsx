@@ -3,6 +3,19 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { UserNav } from "@/components/layout/user-nav";
+import {
+  Calendar,
+  Clock,
+  User,
+  MessageSquare,
+  XCircle,
+  Loader2,
+  FileText,
+  DollarSign,
+} from "lucide-react";
 
 interface Job {
   id: string;
@@ -63,17 +76,17 @@ export default function JobsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
       case "accepted":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
       case "in-progress":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
       case "completed":
-        return "bg-green-100 text-green-800";
+        return "bg-green-500/10 text-green-400 border-green-500/20";
       case "cancelled":
-        return "bg-red-100 text-red-800";
+        return "bg-red-500/10 text-red-400 border-red-500/20";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
     }
   };
 
@@ -88,7 +101,6 @@ export default function JobsPage() {
       });
 
       if (response.ok) {
-        // Refetch jobs
         const supabase = createClient();
         const {
           data: { user },
@@ -111,156 +123,171 @@ export default function JobsPage() {
   };
 
   const viewContractor = (contractorId: string) => {
-    router.push(`/customer/contractors/${contractorId}`);
+    router.push(`/dashboard/customer/contractors/${contractorId}`);
   };
 
   const messageContractor = (contractorId: string) => {
-    router.push(`/customer/messages?contractor=${contractorId}`);
+    router.push(`/dashboard/customer/messages?contractor=${contractorId}`);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
-      </div>
-    );
-  }
+  const filterOptions = [
+    { value: "all", label: "All", count: jobs.length },
+    {
+      value: "active",
+      label: "Active",
+      count: jobs.filter((j) =>
+        ["pending", "accepted", "in-progress"].includes(j.status)
+      ).length,
+    },
+    {
+      value: "pending",
+      label: "Pending",
+      count: jobs.filter((j) => j.status === "pending").length,
+    },
+    {
+      value: "completed",
+      label: "Completed",
+      count: jobs.filter((j) => j.status === "completed").length,
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">My Jobs</h1>
-
-        {/* Filter Tabs */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-lg ${
-                filter === "all"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              All ({jobs.length})
-            </button>
-            <button
-              onClick={() => setFilter("active")}
-              className={`px-4 py-2 rounded-lg ${
-                filter === "active"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Active (
-              {
-                jobs.filter((j) =>
-                  ["pending", "accepted", "in-progress"].includes(j.status)
-                ).length
-              }
-              )
-            </button>
-            <button
-              onClick={() => setFilter("pending")}
-              className={`px-4 py-2 rounded-lg ${
-                filter === "pending"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Pending
-            </button>
-            <button
-              onClick={() => setFilter("completed")}
-              className={`px-4 py-2 rounded-lg ${
-                filter === "completed"
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              Completed
-            </button>
-          </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-white">My Jobs</h2>
+          <UserNav />
         </div>
+      </header>
+
+      <div className="container mx-auto p-6 max-w-6xl">
+        {/* Filter Tabs */}
+        <Card className="p-4 bg-white/5 border-white/10 mb-6">
+          <div className="flex gap-2 flex-wrap">
+            {filterOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setFilter(option.value)}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  filter === option.value
+                    ? "bg-purple-500 text-white"
+                    : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {option.label} ({option.count})
+              </button>
+            ))}
+          </div>
+        </Card>
 
         {/* Jobs List */}
-        <div className="space-y-4">
-          {filteredJobs.map((job) => (
-            <div key={job.id} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-semibold">
-                      {job.contractorName}
-                    </h3>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                        job.status
-                      )}`}
-                    >
-                      {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                    </span>
-                  </div>
-                  <p className="text-gray-600">{job.specialty}</p>
-                </div>
-                {job.estimatedCost && (
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">
-                      ${job.estimatedCost}
-                    </p>
-                    <p className="text-sm text-gray-600">Estimated</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <p className="text-gray-700 mb-2">{job.description}</p>
-                <div className="flex gap-4 text-sm text-gray-600">
-                  <p>📅 {new Date(job.date).toLocaleDateString()}</p>
-                  <p>🕐 {job.time}</p>
-                  <p>
-                    📝 Requested: {new Date(job.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => viewContractor(job.contractorId)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  View Contractor
-                </button>
-                <button
-                  onClick={() => messageContractor(job.contractorId)}
-                  className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                >
-                  Message
-                </button>
-                {job.status === "pending" && (
-                  <button
-                    onClick={() => cancelJob(job.id)}
-                    className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+          </div>
+        ) : filteredJobs.length === 0 ? (
+          <Card className="p-12 bg-white/5 border-white/10 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 mb-4">
+              <FileText className="h-8 w-8 text-purple-400" />
             </div>
-          ))}
-
-          {filteredJobs.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-500 text-lg mb-4">No jobs found.</p>
-              <button
-                onClick={() => router.push("/customer/contractors")}
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            <p className="text-lg font-medium text-white mb-2">No jobs found</p>
+            <p className="text-zinc-400 mb-6">
+              {filter === "all"
+                ? "You haven't booked any contractors yet"
+                : `No ${filter} jobs at the moment`}
+            </p>
+            <Button
+              onClick={() => router.push("/dashboard/customer/contractors")}
+              className="bg-purple-500 hover:bg-purple-600 text-white"
+            >
+              Find Contractors
+            </Button>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {filteredJobs.map((job) => (
+              <Card
+                key={job.id}
+                className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
               >
-                Find Contractors
-              </button>
-            </div>
-          )}
-        </div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-xl font-semibold text-white">
+                        {job.contractorName}
+                      </h3>
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                          job.status
+                        )}`}
+                      >
+                        {job.status.charAt(0).toUpperCase() +
+                          job.status.slice(1).replace("-", " ")}
+                      </span>
+                    </div>
+                    <p className="text-purple-400">{job.specialty}</p>
+                  </div>
+                  {job.estimatedCost && (
+                    <div className="text-right">
+                      <div className="flex items-center text-green-400 font-bold text-xl">
+                        <DollarSign className="h-5 w-5" />
+                        <span>RM {job.estimatedCost}</span>
+                      </div>
+                      <p className="text-sm text-zinc-500">Estimated</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-4">
+                  <p className="text-zinc-300 mb-3">{job.description}</p>
+                  <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-2 text-purple-400" />
+                      {new Date(job.date).toLocaleDateString()}
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-purple-400" />
+                      {job.time}
+                    </div>
+                    <div className="flex items-center">
+                      <FileText className="h-4 w-4 mr-2 text-purple-400" />
+                      Requested: {new Date(job.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => viewContractor(job.contractorId)}
+                    variant="outline"
+                    className="border-white/10 text-white hover:bg-white/5"
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    View Contractor
+                  </Button>
+                  <Button
+                    onClick={() => messageContractor(job.contractorId)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Message
+                  </Button>
+                  {job.status === "pending" && (
+                    <Button
+                      onClick={() => cancelJob(job.id)}
+                      variant="outline"
+                      className="border-red-500/20 text-red-400 hover:bg-red-500/10"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

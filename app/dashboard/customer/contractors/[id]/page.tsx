@@ -4,6 +4,25 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { use } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { UserNav } from "@/components/layout/user-nav";
+import {
+  ArrowLeft,
+  MapPin,
+  Mail,
+  Phone,
+  Clock,
+  Briefcase,
+  Star,
+  DollarSign,
+  MessageSquare,
+  Calendar,
+  Loader2,
+} from "lucide-react";
 
 interface ContractorProfile {
   id: string;
@@ -34,13 +53,14 @@ export default function ContractorProfilePage({
   params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
-  const resolvedParams = use(params); // Unwrap the Promise
+  const resolvedParams = use(params);
   const [contractor, setContractor] = useState<ContractorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingTime, setBookingTime] = useState("");
   const [bookingDescription, setBookingDescription] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchContractorProfile = async () => {
@@ -66,6 +86,8 @@ export default function ContractorProfilePage({
         }
       } catch (error) {
         console.error("Error fetching reviews:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -118,173 +140,233 @@ export default function ContractorProfilePage({
   };
 
   const startMessage = () => {
-    router.push(`/customer/messages?contractor=${resolvedParams.id}`);
+    router.push(`/dashboard/customer/messages?contractor=${resolvedParams.id}`);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
 
   if (!contractor) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        Loading...
+      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+        <Card className="p-6 bg-white/5 border-white/10">
+          <p className="text-white">Contractor not found</p>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        <button
-          onClick={() => router.back()}
-          className="mb-4 text-blue-500 hover:text-blue-600"
-        >
-          ← Back to Search
-        </button>
-
-        {/* Profile Header */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center">
-              <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center text-white text-4xl font-bold">
-                {contractor.name.charAt(0)}
-              </div>
-              <div className="ml-6">
-                <h1 className="text-3xl font-bold">{contractor.name}</h1>
-                <p className="text-xl text-gray-600">{contractor.specialty}</p>
-                <div className="flex items-center mt-2">
-                  <span className="text-yellow-500 text-xl">★</span>
-                  <span className="ml-1 text-lg">
-                    {contractor.rating.toFixed(1)} ({contractor.reviewCount}{" "}
-                    reviews)
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-blue-600">
-                ${contractor.hourlyRate}/hr
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-gray-600">
-                📍 Location: {contractor.location}
-              </p>
-              <p className="text-gray-600">📧 Email: {contractor.email}</p>
-              <p className="text-gray-600">📞 Phone: {contractor.phone}</p>
-            </div>
-            <div>
-              <p className="text-gray-600">
-                🕐 Availability: {contractor.availability}
-              </p>
-              <p className="text-gray-600">
-                💼 Experience: {contractor.experience}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6">
-            <h3 className="text-xl font-semibold mb-2">About</h3>
-            <p className="text-gray-700">{contractor.bio}</p>
-          </div>
-
-          <div className="mt-6 flex gap-4">
-            <button
-              onClick={() => setShowBookingModal(true)}
-              className="flex-1 bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition-colors font-semibold"
-            >
-              Book Now
-            </button>
-            <button
-              onClick={startMessage}
-              className="flex-1 bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold"
-            >
-              Send Message
-            </button>
-          </div>
+    <div className="min-h-screen bg-[#0A0A0A]">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            className="text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <UserNav />
         </div>
+      </header>
+
+      <div className="container p-6">
+        {/* Profile Header */}
+        <Card className="p-8 bg-white/5 border-white/10 mb-6">
+          <div className="flex flex-col md:flex-row items-start gap-6 mb-6">
+            <div className="w-24 h-24 bg-linear-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white text-4xl font-bold shrink-0">
+              {contractor.name.charAt(0)}
+            </div>
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-white mb-2">
+                {contractor.name}
+              </h1>
+              <p className="text-xl text-purple-400 mb-3">
+                {contractor.specialty}
+              </p>
+              <div className="flex items-center gap-1 mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-5 w-5 ${
+                      i < Math.floor(contractor.rating)
+                        ? "text-yellow-400 fill-yellow-400"
+                        : "text-zinc-600"
+                    }`}
+                  />
+                ))}
+                <span className="ml-2 text-white font-semibold">
+                  {contractor.rating.toFixed(1)}
+                </span>
+                <span className="text-zinc-400 ml-1">
+                  ({contractor.reviewCount} reviews)
+                </span>
+              </div>
+              <div className="inline-flex items-center px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                <DollarSign className="h-5 w-5 text-green-400 mr-1" />
+                <span className="text-2xl font-bold text-green-400">
+                  RM {contractor.hourlyRate}
+                </span>
+                <span className="text-zinc-400 ml-1">/hour</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 mb-6">
+            <div className="space-y-3">
+              <div className="flex items-center text-zinc-300">
+                <MapPin className="h-5 w-5 mr-3 text-purple-400" />
+                <span>{contractor.location}</span>
+              </div>
+              <div className="flex items-center text-zinc-300">
+                <Mail className="h-5 w-5 mr-3 text-purple-400" />
+                <span>{contractor.email}</span>
+              </div>
+              <div className="flex items-center text-zinc-300">
+                <Phone className="h-5 w-5 mr-3 text-purple-400" />
+                <span>{contractor.phone}</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center text-zinc-300">
+                <Clock className="h-5 w-5 mr-3 text-purple-400" />
+                <span>{contractor.availability}</span>
+              </div>
+              <div className="flex items-center text-zinc-300">
+                <Briefcase className="h-5 w-5 mr-3 text-purple-400" />
+                <span>{contractor.experience} experience</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-xl font-semibold text-white mb-3">About</h3>
+            <p className="text-zinc-300 leading-relaxed">{contractor.bio}</p>
+          </div>
+
+          <div className="flex gap-4">
+            <Button
+              onClick={() => setShowBookingModal(true)}
+              className="flex-1 bg-purple-500 hover:bg-purple-600 text-white h-12 text-lg font-semibold"
+            >
+              <Calendar className="h-5 w-5 mr-2" />
+              Book Now
+            </Button>
+            <Button
+              onClick={startMessage}
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white h-12 text-lg font-semibold"
+            >
+              <MessageSquare className="h-5 w-5 mr-2" />
+              Send Message
+            </Button>
+          </div>
+        </Card>
 
         {/* Reviews Section */}
-        <div className="bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-2xl font-bold mb-6">
+        <Card className="p-8 bg-white/5 border-white/10">
+          <h2 className="text-2xl font-bold text-white mb-6">
             Reviews ({reviews.length})
           </h2>
           <div className="space-y-4">
             {reviews.map((review) => (
-              <div key={review.id} className="border-b pb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-semibold">{review.customerName}</p>
-                  <div className="flex items-center">
-                    <span className="text-yellow-500">★</span>
-                    <span className="ml-1">{review.rating.toFixed(1)}</span>
+              <div
+                key={review.id}
+                className="p-4 rounded-lg bg-white/5 border border-white/10"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-semibold text-white">
+                    {review.customerName}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < review.rating
+                            ? "text-yellow-400 fill-yellow-400"
+                            : "text-zinc-600"
+                        }`}
+                      />
+                    ))}
                   </div>
                 </div>
-                <p className="text-gray-700">{review.comment}</p>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-zinc-300 mb-2">{review.comment}</p>
+                <p className="text-sm text-zinc-500">
                   {new Date(review.date).toLocaleDateString()}
                 </p>
               </div>
             ))}
             {reviews.length === 0 && (
-              <p className="text-gray-500">No reviews yet.</p>
+              <p className="text-center text-zinc-500 py-8">No reviews yet.</p>
             )}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Booking Modal */}
       {showBookingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-8 max-w-md w-full">
-            <h2 className="text-2xl font-bold mb-4">Book {contractor.name}</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <Card className="max-w-md w-full p-8 bg-zinc-900 border-white/10">
+            <h2 className="text-2xl font-bold text-white mb-6">
+              Book {contractor.name}
+            </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Date</label>
-                <input
+                <Label className="text-zinc-300 mb-2 block">Date</Label>
+                <Input
                   type="date"
                   value={bookingDate}
                   onChange={(e) => setBookingDate(e.target.value)}
                   min={new Date().toISOString().split("T")[0]}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="bg-white/5 border-white/10 text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Time</label>
-                <input
+                <Label className="text-zinc-300 mb-2 block">Time</Label>
+                <Input
                   type="time"
                   value={bookingTime}
                   onChange={(e) => setBookingTime(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="bg-white/5 border-white/10 text-white"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <Label className="text-zinc-300 mb-2 block">
                   Job Description
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   value={bookingDescription}
                   onChange={(e) => setBookingDescription(e.target.value)}
                   rows={4}
                   placeholder="Describe the work you need done..."
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
                 />
               </div>
-              <div className="flex gap-4">
-                <button
+              <div className="flex gap-3 pt-4">
+                <Button
                   onClick={handleBooking}
-                  className="flex-1 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600"
+                  className="flex-1 bg-purple-500 hover:bg-purple-600 text-white h-11"
                 >
                   Confirm Booking
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setShowBookingModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                  variant="outline"
+                  className="flex-1 border-white/10 text-white hover:bg-white/5 h-11"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>
