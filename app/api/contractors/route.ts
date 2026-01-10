@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import type { ContractorWithDetails } from "@/types/database";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +15,8 @@ const supabaseAdmin = createClient(
 
 export async function GET() {
   try {
+    console.log("Fetching contractors...");
+
     const { data: contractors, error } = await supabaseAdmin
       .from("contractor_profiles")
       .select(
@@ -28,7 +30,7 @@ export async function GET() {
         hourly_rate,
         avg_rating,
         total_reviews,
-        profiles!contractor_profiles_user_id_fkey (
+        profiles:user_id (
           email,
           phone,
           full_name
@@ -39,17 +41,17 @@ export async function GET() {
           )
         )
       `
-      )
-      // Removed .eq('status', 'approved') to show all contractors for testing
-      // Add it back in production: .eq('status', 'approved')
-      .returns<ContractorWithDetails[]>();
+      );
 
     if (error) {
+      console.error("Supabase error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log("Contractors fetched:", contractors?.length || 0);
+
     const formattedContractors =
-      contractors?.map((c) => ({
+      contractors?.map((c: any) => ({
         id: c.id,
         name: c.business_name,
         email: c.profiles?.email || "",

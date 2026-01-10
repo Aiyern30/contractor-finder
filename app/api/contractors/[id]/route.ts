@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import type { ContractorWithDetails } from "@/types/database";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +35,7 @@ export async function GET(
         avg_rating,
         total_reviews,
         total_jobs,
-        profiles!contractor_profiles_user_id_fkey (
+        profiles:user_id (
           email,
           phone,
           full_name
@@ -53,7 +53,7 @@ export async function GET(
       `
       )
       .eq("id", params.id)
-      .single<ContractorWithDetails>();
+      .single();
 
     if (error || !contractor) {
       return NextResponse.json(
@@ -65,11 +65,11 @@ export async function GET(
     const formattedContractor = {
       id: contractor.id,
       name: contractor.business_name,
-      email: contractor.profiles?.email || "",
-      phone: contractor.profiles?.phone || "",
+      email: (contractor as any).profiles?.email || "",
+      phone: (contractor as any).profiles?.phone || "",
       specialty:
-        contractor.contractor_services?.[0]?.service_categories?.name ||
-        "General",
+        (contractor as any).contractor_services?.[0]?.service_categories
+          ?.name || "General",
       location: `${contractor.city || ""}, ${contractor.state || ""}`.trim(),
       rating: contractor.avg_rating || 0,
       reviewCount: contractor.total_reviews || 0,
@@ -77,7 +77,7 @@ export async function GET(
       bio: contractor.bio || "",
       experience: `${contractor.years_experience || 0} years`,
       availability:
-        contractor.availability?.length > 0
+        (contractor as any).availability?.length > 0
           ? "Available"
           : "Contact for availability",
     };

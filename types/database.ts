@@ -104,8 +104,10 @@ export interface Review {
 
 // Joined query types
 export interface ContractorWithDetails extends ContractorProfile {
-  profiles: Profile;
-  contractor_services: ContractorService[];
+  profiles: Profile; // Changed from array to single object
+  contractor_services: {
+    service_categories: ServiceCategory;
+  }[];
   availability: Availability[];
 }
 
