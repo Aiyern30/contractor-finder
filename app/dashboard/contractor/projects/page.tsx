@@ -38,6 +38,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Project {
   id: string;
@@ -479,26 +486,29 @@ export default function ContractorProjectsPage() {
               />
             </div>
 
-            {/* Category */}
+            {/* Category - REPLACED with Shadcn Select */}
             <div>
               <Label className="text-zinc-300">Service Category *</Label>
-              <select
+              <Select
                 value={projectForm.category_id}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setProjectForm({
                     ...projectForm,
-                    category_id: e.target.value,
+                    category_id: value,
                   })
                 }
-                className="mt-1.5 w-full h-10 px-3 rounded-md bg-white/5 border border-white/10 text-white"
               >
-                <option value="">Select category...</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="mt-1.5 bg-white/5 border-white/10 text-white">
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-900 border-zinc-800">
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Description */}
