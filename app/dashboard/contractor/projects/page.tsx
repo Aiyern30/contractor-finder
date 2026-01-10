@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
@@ -72,6 +73,14 @@ interface ProjectForm {
   images: string[];
 }
 
+// NEW: Interface for temporary image previews
+interface ImagePreview {
+  file: File;
+  preview: string;
+  id: string;
+  isExisting?: boolean; // Track if it's an existing uploaded image
+}
+
 export default function ContractorProjectsPage() {
   const { supabase } = useSupabase();
   const router = useRouter();
@@ -82,7 +91,9 @@ export default function ContractorProjectsPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [uploadingImages, setUploadingImages] = useState(false);
+
+  // NEW: State for temporary image previews (not uploaded yet)
+  const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -173,6 +184,7 @@ export default function ContractorProjectsPage() {
       location: "",
       images: [],
     });
+    setImagePreviews([]); // Clear previews
     setShowDialog(true);
   };
 
@@ -187,25 +199,77 @@ export default function ContractorProjectsPage() {
       location: project.location || "",
       images: project.images || [],
     });
+
+    // NEW: Convert existing images to preview format
+    const existingPreviews: ImagePreview[] = (project.images || []).map(
+      (url, index) => ({
+        file: null as any,
+        preview: url,
+        id: `existing-${index}`,
+        isExisting: true,
+      })
+    );
+    setImagePreviews(existingPreviews);
+
     setShowDialog(true);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // NEW: Handle file selection (creates preview only, no upload)
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setUploadingImages(true);
+    const newPreviews: ImagePreview[] = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      id: `temp-${Date.now()}-${Math.random()}`,
+      isExisting: false,
+    }));
+
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+  };
+
+  // NEW: Remove image from preview (before save)
+  const removeImagePreview = (id: string) => {
+    setImagePreviews((prev) => {
+      const updated = prev.filter((img) => img.id !== id);
+      // Clean up preview URL for new images
+      const removed = prev.find((img) => img.id === id);
+      if (removed && !removed.isExisting) {
+        URL.revokeObjectURL(removed.preview);
+      }
+      return updated;
+    });
+  };
+
+  // MODIFIED: Save project with delayed image upload
+  const handleSaveProject = async () => {
+    if (!projectForm.title || !projectForm.category_id) {
+      alert("Please fill in required fields");
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
+      // NEW: Upload new images to bucket
       const uploadedUrls: string[] = [];
 
-      for (const file of Array.from(files)) {
-        const fileExt = file.name.split(".").pop();
+      // Keep existing images that weren't removed
+      const existingImages = imagePreviews
+        .filter((img) => img.isExisting)
+        .map((img) => img.preview);
+
+      // Upload new images
+      const newImages = imagePreviews.filter((img) => !img.isExisting);
+
+      for (const imagePreview of newImages) {
+        const fileExt = imagePreview.file.name.split(".").pop();
         const fileName = `${contractorId}/${Date.now()}-${Math.random()}.${fileExt}`;
 
         const { data, error } = await supabase.storage
           .from("project-images")
-          .upload(fileName, file, {
+          .upload(fileName, imagePreview.file, {
             cacheControl: "3600",
             upsert: false,
           });
@@ -219,27 +283,9 @@ export default function ContractorProjectsPage() {
         uploadedUrls.push(urlData.publicUrl);
       }
 
-      setProjectForm({
-        ...projectForm,
-        images: [...projectForm.images, ...uploadedUrls],
-      });
-    } catch (error) {
-      console.error("Error uploading images:", error);
-      alert("Failed to upload images");
-    } finally {
-      setUploadingImages(false);
-    }
-  };
+      // Combine existing and newly uploaded images
+      const allImageUrls = [...existingImages, ...uploadedUrls];
 
-  const handleSaveProject = async () => {
-    if (!projectForm.title || !projectForm.category_id) {
-      alert("Please fill in required fields");
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
       const projectData = {
         contractor_id: contractorId,
         title: projectForm.title,
@@ -250,7 +296,7 @@ export default function ContractorProjectsPage() {
           ? parseFloat(projectForm.project_value)
           : null,
         location: projectForm.location || null,
-        images: projectForm.images,
+        images: allImageUrls,
       };
 
       if (editingProject) {
@@ -261,6 +307,24 @@ export default function ContractorProjectsPage() {
           .eq("id", editingProject.id);
 
         if (error) throw error;
+
+        // NEW: Delete removed images from storage
+        if (editingProject.images) {
+          const removedImages = editingProject.images.filter(
+            (url) => !allImageUrls.includes(url)
+          );
+
+          for (const imageUrl of removedImages) {
+            try {
+              const path = imageUrl.split("/project-images/")[1];
+              if (path) {
+                await supabase.storage.from("project-images").remove([path]);
+              }
+            } catch (error) {
+              console.error("Error deleting removed image:", error);
+            }
+          }
+        }
       } else {
         // Create new project
         const { error } = await supabase
@@ -270,8 +334,16 @@ export default function ContractorProjectsPage() {
         if (error) throw error;
       }
 
+      // Clean up preview URLs
+      imagePreviews.forEach((img) => {
+        if (!img.isExisting) {
+          URL.revokeObjectURL(img.preview);
+        }
+      });
+
       await loadData();
       setShowDialog(false);
+      setImagePreviews([]);
     } catch (error) {
       console.error("Error saving project:", error);
       alert("Failed to save project");
@@ -292,12 +364,29 @@ export default function ContractorProjectsPage() {
     if (!deleteDialog.projectId) return;
 
     try {
+      // Get project to delete its images
+      const project = projects.find((p) => p.id === deleteDialog.projectId);
+
       const { error } = await supabase
         .from("contractor_projects")
         .delete()
         .eq("id", deleteDialog.projectId);
 
       if (error) throw error;
+
+      // Delete images from storage
+      if (project?.images) {
+        for (const imageUrl of project.images) {
+          try {
+            const path = imageUrl.split("/project-images/")[1];
+            if (path) {
+              await supabase.storage.from("project-images").remove([path]);
+            }
+          } catch (error) {
+            console.error("Error deleting image:", error);
+          }
+        }
+      }
 
       setProjects(projects.filter((p) => p.id !== deleteDialog.projectId));
       setDeleteDialog({ open: false, projectId: null, projectTitle: null });
@@ -307,23 +396,18 @@ export default function ContractorProjectsPage() {
     }
   };
 
-  const removeImage = async (index: number, imageUrl: string) => {
-    // Try to delete from storage if it's a storage URL
-    if (imageUrl.includes("supabase")) {
-      try {
-        const path = imageUrl.split("/project-images/")[1];
-        if (path) {
-          await supabase.storage.from("project-images").remove([path]);
+  // NEW: Clean up preview URLs when dialog closes
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      // Clean up preview URLs
+      imagePreviews.forEach((img) => {
+        if (!img.isExisting) {
+          URL.revokeObjectURL(img.preview);
         }
-      } catch (error) {
-        console.error("Error deleting image from storage:", error);
-      }
+      });
+      setImagePreviews([]);
     }
-
-    setProjectForm({
-      ...projectForm,
-      images: projectForm.images.filter((_, i) => i !== index),
-    });
+    setShowDialog(open);
   };
 
   if (isLoading) {
@@ -459,7 +543,7 @@ export default function ContractorProjectsPage() {
       )}
 
       {/* Add/Edit Project Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={handleDialogClose}>
         <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">
@@ -486,7 +570,7 @@ export default function ContractorProjectsPage() {
               />
             </div>
 
-            {/* Category - REPLACED with Shadcn Select */}
+            {/* Category */}
             <div>
               <Label className="text-zinc-300">Service Category *</Label>
               <Select
@@ -573,7 +657,7 @@ export default function ContractorProjectsPage() {
               />
             </div>
 
-            {/* Images */}
+            {/* Images - MODIFIED */}
             <div>
               <Label className="text-zinc-300">Project Images</Label>
 
@@ -581,49 +665,44 @@ export default function ContractorProjectsPage() {
               <div className="mt-1.5 space-y-2">
                 <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white/5 border-2 border-white/10 border-dashed rounded-lg appearance-none cursor-pointer hover:border-purple-500/50 hover:bg-white/10">
                   <div className="flex flex-col items-center space-y-2">
-                    {uploadingImages ? (
-                      <>
-                        <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
-                        <span className="text-sm text-zinc-400">
-                          Uploading...
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-zinc-400" />
-                        <span className="text-sm text-zinc-400">
-                          Click to upload images
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          PNG, JPG, WEBP up to 10MB
-                        </span>
-                      </>
-                    )}
+                    <Upload className="h-8 w-8 text-zinc-400" />
+                    <span className="text-sm text-zinc-400">
+                      Click to select images
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      PNG, JPG, WEBP up to 10MB (will upload on save)
+                    </span>
                   </div>
                   <input
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={handleImageUpload}
+                    onChange={handleImageSelect}
                     className="hidden"
-                    disabled={uploadingImages}
                   />
                 </label>
               </div>
 
-              {projectForm.images.length > 0 && (
+              {/* Image Previews */}
+              {imagePreviews.length > 0 && (
                 <div className="mt-3 grid grid-cols-3 gap-2">
-                  {projectForm.images.map((img, index) => (
-                    <div key={index} className="relative group aspect-square">
+                  {imagePreviews.map((img) => (
+                    <div key={img.id} className="relative group aspect-square">
                       <Image
-                        src={img}
-                        alt={`Project ${index + 1}`}
+                        src={img.preview}
+                        alt="Preview"
                         fill
                         className="object-cover rounded-lg"
                       />
+                      {/* Badge for new images */}
+                      {!img.isExisting && (
+                        <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded">
+                          New
+                        </div>
+                      )}
                       <button
                         type="button"
-                        onClick={() => removeImage(index, img)}
+                        onClick={() => removeImagePreview(img.id)}
                         className="absolute top-1 right-1 p-1.5 bg-red-500 hover:bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="h-3 w-3 text-white" />
@@ -632,13 +711,20 @@ export default function ContractorProjectsPage() {
                   ))}
                 </div>
               )}
+
+              {imagePreviews.length > 0 && (
+                <p className="text-xs text-zinc-500 mt-2">
+                  {imagePreviews.filter((img) => !img.isExisting).length} new
+                  image(s) will be uploaded when you save
+                </p>
+              )}
             </div>
           </div>
 
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDialog(false)}
+              onClick={() => handleDialogClose(false)}
               className="border-white/10 text-white hover:bg-white/5"
             >
               Cancel
@@ -651,7 +737,7 @@ export default function ContractorProjectsPage() {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  Saving & Uploading...
                 </>
               ) : (
                 "Save Project"
