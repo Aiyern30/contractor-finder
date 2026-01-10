@@ -58,9 +58,9 @@ export default function CustomerProfilePage() {
         return;
       }
 
-      // Check user type from auth metadata
+      // Check user type from auth metadata - accept both homeowner and customer
       const userType = session.user.user_metadata?.user_type;
-      if (userType !== "homeowner") {
+      if (userType !== "homeowner" && userType !== "customer") {
         toast.error("Access Denied", {
           description: "This page is only for customers",
         });
@@ -78,15 +78,15 @@ export default function CustomerProfilePage() {
 
       setProfile(profileData);
 
-      // Load customer stats
+      // Load customer stats with better queries
       const { data: bookingsData } = await supabase
         .from("bookings")
-        .select("id, status")
+        .select("id, status, created_at, completion_date")
         .eq("customer_id", session.user.id);
 
       const { data: reviewsData } = await supabase
         .from("reviews")
-        .select("id")
+        .select("id, rating, created_at")
         .eq("customer_id", session.user.id);
 
       setStats({
@@ -200,8 +200,11 @@ export default function CustomerProfilePage() {
   }
 
   const displayName =
-    user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
-  const avatarUrl = user.user_metadata?.avatar_url;
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const avatarUrl = user?.user_metadata?.avatar_url;
+
+  // Get member since date from auth user created_at or profile
+  const memberSince = user?.created_at || profile?.created_at;
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -255,7 +258,7 @@ export default function CustomerProfilePage() {
         </div>
       </header>
 
-      <div className="container mx-auto p-4 md:p-8">
+      <div className="p-4 md:p-8">
         <div className="space-y-6">
           {/* Personal Information Card */}
           <Card className="p-6 bg-white/5 border-white/10">
@@ -285,7 +288,7 @@ export default function CustomerProfilePage() {
                 <h2 className="text-2xl font-bold text-white mb-1">
                   {displayName}
                 </h2>
-                <p className="text-sm text-zinc-400 mb-3">{user.email}</p>
+                <p className="text-sm text-zinc-400 mb-3">{user?.email}</p>
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">
                     CUSTOMER
@@ -293,12 +296,13 @@ export default function CustomerProfilePage() {
                   <span className="text-xs text-zinc-500 ml-2">
                     <Calendar className="h-3 w-3 inline mr-1" />
                     Member since{" "}
-                    {profile?.created_at
-                      ? new Date(profile.created_at).toLocaleDateString(
-                          "en-US",
-                          { year: "numeric", month: "long", day: "numeric" }
-                        )
-                      : "Unknown"}
+                    {memberSince
+                      ? new Date(memberSince).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "Recently joined"}
                   </span>
                 </div>
               </div>
@@ -356,15 +360,17 @@ export default function CustomerProfilePage() {
             </div>
           </Card>
 
-          {/* Stats Grid */}
+          {/* Enhanced Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-purple-500/10">
-                  <Briefcase className="h-6 w-6 text-purple-400" />
+            <Card className="p-6 bg-linar-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20 hover:border-purple-500/40 transition-all">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="p-3 rounded-lg bg-purple-500/20">
+                    <Briefcase className="h-6 w-6 text-purple-400" />
+                  </div>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-3xl font-bold text-white mb-1">
                     {stats.totalBookings}
                   </p>
                   <p className="text-sm text-zinc-400">Total Bookings</p>
@@ -372,41 +378,65 @@ export default function CustomerProfilePage() {
               </div>
             </Card>
 
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-green-500/10">
-                  <Briefcase className="h-6 w-6 text-green-400" />
+            <Card className="p-6 bg-linar-to-br from-green-500/10 to-green-500/5 border-green-500/20 hover:border-green-500/40 transition-all">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="p-3 rounded-lg bg-green-500/20">
+                    <Briefcase className="h-6 w-6 text-green-400" />
+                  </div>
+                  {stats.completedJobs > 0 && (
+                    <span className="text-xs font-medium text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
+                      {Math.round(
+                        (stats.completedJobs / stats.totalBookings) * 100
+                      )}
+                      %
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-3xl font-bold text-white mb-1">
                     {stats.completedJobs}
                   </p>
-                  <p className="text-sm text-zinc-400">Completed</p>
+                  <p className="text-sm text-zinc-400">Completed Jobs</p>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-blue-500/10">
-                  <MapPin className="h-6 w-6 text-blue-400" />
+            <Card className="p-6 bg-linar-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20 hover:border-blue-500/40 transition-all">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="p-3 rounded-lg bg-blue-500/20">
+                    <MapPin className="h-6 w-6 text-blue-400" />
+                  </div>
+                  {stats.activeJobs > 0 && (
+                    <span className="text-xs font-medium text-blue-400 bg-blue-500/10 px-2 py-1 rounded-full">
+                      ACTIVE
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-3xl font-bold text-white mb-1">
                     {stats.activeJobs}
                   </p>
-                  <p className="text-sm text-zinc-400">Active Jobs</p>
+                  <p className="text-sm text-zinc-400">In Progress</p>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg bg-yellow-500/10">
-                  <Star className="h-6 w-6 text-yellow-400" />
+            <Card className="p-6 bg-linar-to-br from-yellow-500/10 to-yellow-500/5 border-yellow-500/20 hover:border-yellow-500/40 transition-all">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="p-3 rounded-lg bg-yellow-500/20">
+                    <Star className="h-6 w-6 text-yellow-400" />
+                  </div>
+                  {stats.totalReviews > 0 && (
+                    <span className="text-xs font-medium text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded-full">
+                      REVIEWS
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-3xl font-bold text-white mb-1">
                     {stats.totalReviews}
                   </p>
                   <p className="text-sm text-zinc-400">Reviews Given</p>

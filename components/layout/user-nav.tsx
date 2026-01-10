@@ -58,8 +58,9 @@ export function UserNav() {
 
   if (!user) return null;
 
-  // Get user type directly from auth metadata
-  const userType = user.user_metadata?.user_type || "customer";
+  // Get user type directly from auth metadata - handle both homeowner and customer
+  const userType = user.user_metadata?.user_type || "homeowner";
+  const displayUserType = userType === 'homeowner' ? 'customer' : userType;
   const displayName =
     user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
   const avatarUrl = user.user_metadata?.avatar_url;
@@ -83,7 +84,7 @@ export function UserNav() {
             <p className="text-xs leading-none text-muted-foreground">
               {user.email}
             </p>
-            <p className="text-xs text-purple-400 capitalize">{userType}</p>
+            <p className="text-xs text-purple-400 capitalize">{displayUserType}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -95,7 +96,7 @@ export function UserNav() {
                   ? "/dashboard/contractor"
                   : userType === "admin"
                   ? "/dashboard/admin"
-                  : "/dashboard/customer";
+                  : "/dashboard/customer"; // Both homeowner and customer go here
               router.push(path);
             }}
           >
@@ -109,7 +110,7 @@ export function UserNav() {
                   ? "/dashboard/contractor/profile"
                   : userType === "admin"
                   ? "/dashboard/admin/profile"
-                  : "/dashboard/customer/profile";
+                  : "/dashboard/customer/profile"; // Both homeowner and customer go here
               router.push(path);
             }}
           >
