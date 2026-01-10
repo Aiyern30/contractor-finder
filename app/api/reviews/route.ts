@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       .eq("id", customerId)
       .maybeSingle();
 
-    if (profileError && profileError.code !== 'PGRST116') {
+    if (profileError && profileError.code !== "PGRST116") {
       throw profileError;
     }
 
@@ -47,7 +47,9 @@ export async function POST(request: Request) {
     if (!customerProfile) {
       console.error("Customer profile not found for user:", customerId);
       return NextResponse.json(
-        { error: "Profile not found. Please complete your profile setup first." },
+        {
+          error: "Profile not found. Please complete your profile setup first.",
+        },
         { status: 404 }
       );
     }
@@ -110,13 +112,13 @@ export async function POST(request: Request) {
 
     if (reviewError) {
       console.error("Review insert error:", reviewError);
-      if (reviewError.code === '23505') {
+      if (reviewError.code === "23505") {
         return NextResponse.json(
           { error: "You have already reviewed this" },
           { status: 400 }
         );
       }
-      if (reviewError.code === '23503') {
+      if (reviewError.code === "23503") {
         return NextResponse.json(
           { error: "Invalid booking or contractor ID" },
           { status: 400 }
