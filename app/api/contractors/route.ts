@@ -40,7 +40,8 @@ export async function GET() {
         )
       `
       )
-      .eq("status", "approved")
+      // Removed .eq('status', 'approved') to show all contractors for testing
+      // Add it back in production: .eq('status', 'approved')
       .returns<ContractorWithDetails[]>();
 
     if (error) {
