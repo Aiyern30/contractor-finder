@@ -512,7 +512,7 @@ export default function ProjectDetailPage() {
       }}
       actions={headerActions}
     >
-      <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <div className="p-4 md:p-8">
         {/* Project Title */}
         <div className="mb-6">
           {isEditMode ? (
