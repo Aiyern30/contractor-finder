@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface ContractorProfile {
   id: string;
@@ -26,14 +26,18 @@ interface Review {
   date: string;
 }
 
-export default function ContractorProfilePage({ params }: { params: { id: string } }) {
+export default function ContractorProfilePage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const router = useRouter();
   const [contractor, setContractor] = useState<ContractorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [bookingDate, setBookingDate] = useState('');
-  const [bookingTime, setBookingTime] = useState('');
-  const [bookingDescription, setBookingDescription] = useState('');
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingDescription, setBookingDescription] = useState("");
 
   useEffect(() => {
     fetchContractorProfile();
@@ -48,7 +52,7 @@ export default function ContractorProfilePage({ params }: { params: { id: string
         setContractor(data);
       }
     } catch (error) {
-      console.error('Error fetching contractor:', error);
+      console.error("Error fetching contractor:", error);
     }
   };
 
@@ -60,20 +64,20 @@ export default function ContractorProfilePage({ params }: { params: { id: string
         setReviews(data);
       }
     } catch (error) {
-      console.error('Error fetching reviews:', error);
+      console.error("Error fetching reviews:", error);
     }
   };
 
   const handleBooking = async () => {
     if (!bookingDate || !bookingTime || !bookingDescription) {
-      alert('Please fill in all booking details');
+      alert("Please fill in all booking details");
       return;
     }
 
     try {
-      const response = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contractorId: params.id,
           date: bookingDate,
@@ -83,15 +87,15 @@ export default function ContractorProfilePage({ params }: { params: { id: string
       });
 
       if (response.ok) {
-        alert('Booking request sent successfully!');
+        alert("Booking request sent successfully!");
         setShowBookingModal(false);
-        router.push('/customer/jobs');
+        router.push("/customer/jobs");
       } else {
-        alert('Failed to create booking');
+        alert("Failed to create booking");
       }
     } catch (error) {
-      console.error('Error creating booking:', error);
-      alert('An error occurred');
+      console.error("Error creating booking:", error);
+      alert("An error occurred");
     }
   };
 
@@ -100,7 +104,11 @@ export default function ContractorProfilePage({ params }: { params: { id: string
   };
 
   if (!contractor) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
   return (
@@ -125,24 +133,35 @@ export default function ContractorProfilePage({ params }: { params: { id: string
                 <p className="text-xl text-gray-600">{contractor.specialty}</p>
                 <div className="flex items-center mt-2">
                   <span className="text-yellow-500 text-xl">★</span>
-                  <span className="ml-1 text-lg">{contractor.rating.toFixed(1)} ({contractor.reviewCount} reviews)</span>
+                  <span className="ml-1 text-lg">
+                    {contractor.rating.toFixed(1)} ({contractor.reviewCount}{" "}
+                    reviews)
+                  </span>
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-blue-600">${contractor.hourlyRate}/hr</p>
+              <p className="text-3xl font-bold text-blue-600">
+                ${contractor.hourlyRate}/hr
+              </p>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-gray-600">📍 Location: {contractor.location}</p>
+              <p className="text-gray-600">
+                📍 Location: {contractor.location}
+              </p>
               <p className="text-gray-600">📧 Email: {contractor.email}</p>
               <p className="text-gray-600">📞 Phone: {contractor.phone}</p>
             </div>
             <div>
-              <p className="text-gray-600">🕐 Availability: {contractor.availability}</p>
-              <p className="text-gray-600">💼 Experience: {contractor.experience}</p>
+              <p className="text-gray-600">
+                🕐 Availability: {contractor.availability}
+              </p>
+              <p className="text-gray-600">
+                💼 Experience: {contractor.experience}
+              </p>
             </div>
           </div>
 
@@ -169,7 +188,9 @@ export default function ContractorProfilePage({ params }: { params: { id: string
 
         {/* Reviews Section */}
         <div className="bg-white rounded-lg shadow-md p-8">
-          <h2 className="text-2xl font-bold mb-6">Reviews ({reviews.length})</h2>
+          <h2 className="text-2xl font-bold mb-6">
+            Reviews ({reviews.length})
+          </h2>
           <div className="space-y-4">
             {reviews.map((review) => (
               <div key={review.id} className="border-b pb-4">
@@ -181,7 +202,9 @@ export default function ContractorProfilePage({ params }: { params: { id: string
                   </div>
                 </div>
                 <p className="text-gray-700">{review.comment}</p>
-                <p className="text-sm text-gray-500 mt-2">{new Date(review.date).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  {new Date(review.date).toLocaleDateString()}
+                </p>
               </div>
             ))}
             {reviews.length === 0 && (
@@ -203,7 +226,7 @@ export default function ContractorProfilePage({ params }: { params: { id: string
                   type="date"
                   value={bookingDate}
                   onChange={(e) => setBookingDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toISOString().split("T")[0]}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -217,7 +240,9 @@ export default function ContractorProfilePage({ params }: { params: { id: string
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Job Description</label>
+                <label className="block text-sm font-medium mb-1">
+                  Job Description
+                </label>
                 <textarea
                   value={bookingDescription}
                   onChange={(e) => setBookingDescription(e.target.value)}
