@@ -8,15 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/user-nav";
 import { Profile } from "@/types";
-import {
-  Briefcase,
-  DollarSign,
-  Star,
-  TrendingUp,
-  Calendar,
-  FileText,
-  Plus,
-} from "lucide-react";
+import { StatsGrid } from "@/components/dashboard/contractor/stats-grid";
+import { ServicesList } from "@/components/dashboard/contractor/services-list";
+import { AvailableProjects } from "@/components/dashboard/contractor/available-projects";
+import { UpcomingSchedule } from "@/components/dashboard/contractor/upcoming-schedule";
 
 export default function ContractorDashboardPage() {
   const { supabase } = useSupabase();
@@ -24,6 +19,7 @@ export default function ContractorDashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [contractorProfile, setContractorProfile] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -71,7 +67,10 @@ export default function ContractorDashboardPage() {
             )
             .eq("contractor_id", contProfile.id);
 
-          if (mounted) setServices(servicesData || []);
+          if (mounted) {
+            setServices(servicesData || []);
+            setLoading(false);
+          }
         }
       }
     }
@@ -92,6 +91,14 @@ export default function ContractorDashboardPage() {
         services.length > 0,
       ].filter(Boolean).length * 20
     : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -141,152 +148,20 @@ export default function ContractorDashboardPage() {
           </Card>
         )}
 
-        {/* Stats Grid - Contractor specific */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-zinc-400">Active Jobs</p>
-              <Briefcase className="h-4 w-4 text-purple-400" />
-            </div>
-            <div className="text-2xl font-bold text-white">8</div>
-            <p className="text-xs text-zinc-500 mt-1">Currently working on</p>
-          </Card>
-
-          <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-zinc-400">This Month</p>
-              <DollarSign className="h-4 w-4 text-green-400" />
-            </div>
-            <div className="text-2xl font-bold text-white">$12,450</div>
-            <p className="text-xs text-zinc-500 mt-1">+22% from last month</p>
-          </Card>
-
-          <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-zinc-400">Rating</p>
-              <Star className="h-4 w-4 text-yellow-400" />
-            </div>
-            <div className="text-2xl font-bold text-white">4.8</div>
-            <p className="text-xs text-zinc-500 mt-1">Based on 42 reviews</p>
-          </Card>
-
-          <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-zinc-400">Success Rate</p>
-              <TrendingUp className="h-4 w-4 text-indigo-400" />
-            </div>
-            <div className="text-2xl font-bold text-white">94%</div>
-            <p className="text-xs text-zinc-500 mt-1">Jobs completed</p>
-          </Card>
-        </div>
+        {/* Stats Grid - Now with real data */}
+        {contractorProfile && <StatsGrid contractorId={contractorProfile.id} />}
 
         {/* Services List */}
-        {services.length > 0 && (
-          <Card className="p-6 bg-white/5 border-white/10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-white">
-                Your Services
-              </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  router.push("/dashboard/contractor/services/add")
-                }
-                className="border-white/10 text-white hover:bg-white/5"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add More
-              </Button>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {services.map((service) => (
-                <div
-                  key={service.id}
-                  className="p-4 rounded-lg border border-white/10 bg-white/5"
-                >
-                  <h4 className="font-semibold text-white mb-2">
-                    {service.service_categories.name}
-                  </h4>
-                  {(service.price_range_min || service.price_range_max) && (
-                    <p className="text-sm text-zinc-400 mb-2">
-                      ${service.price_range_min || "0"} - $
-                      {service.price_range_max || "0"}
-                    </p>
-                  )}
-                  {service.description && (
-                    <p className="text-xs text-zinc-500 line-clamp-2">
-                      {service.description}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+        <ServicesList services={services} />
 
         {/* Available Projects & Schedule */}
         <div className="grid gap-8 md:grid-cols-2">
-          <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <FileText className="h-5 w-5 text-purple-400" />
-                Available Projects
-              </h3>
-            </div>
-            <div className="space-y-4">
-              <div className="rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10 cursor-pointer">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-semibold text-white">
-                    Kitchen Renovation
-                  </h4>
-                  <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded">
-                    New
-                  </span>
-                </div>
-                <p className="text-sm text-zinc-400 mb-2">
-                  Full kitchen remodel with new cabinets...
-                </p>
-                <div className="flex items-center gap-4 text-xs text-zinc-500">
-                  <span>Budget: $15,000</span>
-                  <span>•</span>
-                  <span>Posted 2 hours ago</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-indigo-400" />
-                Upcoming Schedule
-              </h3>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-white">
-                    Site Inspection
-                  </p>
-                  <p className="text-xs text-zinc-500">Tomorrow, 10:00 AM</p>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
-                  Confirmed
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-white">Final Review</p>
-                  <p className="text-xs text-zinc-500">Jan 15, 2:00 PM</p>
-                </div>
-                <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
-                  Pending
-                </span>
-              </div>
-            </div>
-          </Card>
+          {contractorProfile && (
+            <>
+              <AvailableProjects contractorId={contractorProfile.id} />
+              <UpcomingSchedule contractorId={contractorProfile.id} />
+            </>
+          )}
         </div>
       </div>
     </div>
