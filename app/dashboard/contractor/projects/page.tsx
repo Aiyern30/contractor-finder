@@ -17,6 +17,7 @@ import {
   X,
   Calendar,
   DollarSign,
+  Upload,
 } from "lucide-react";
 import {
   Dialog,
@@ -74,6 +75,7 @@ export default function ContractorProjectsPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const [showDialog, setShowDialog] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -181,6 +183,47 @@ export default function ContractorProjectsPage() {
     setShowDialog(true);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImages(true);
+
+    try {
+      const uploadedUrls: string[] = [];
+
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${contractorId}/${Date.now()}-${Math.random()}.${fileExt}`;
+
+        const { data, error } = await supabase.storage
+          .from("project-images")
+          .upload(fileName, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (error) throw error;
+
+        const { data: urlData } = supabase.storage
+          .from("project-images")
+          .getPublicUrl(data.path);
+
+        uploadedUrls.push(urlData.publicUrl);
+      }
+
+      setProjectForm({
+        ...projectForm,
+        images: [...projectForm.images, ...uploadedUrls],
+      });
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      alert("Failed to upload images");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
   const handleSaveProject = async () => {
     if (!projectForm.title || !projectForm.category_id) {
       alert("Please fill in required fields");
@@ -257,17 +300,19 @@ export default function ContractorProjectsPage() {
     }
   };
 
-  const addImageUrl = () => {
-    const url = prompt("Enter image URL:");
-    if (url) {
-      setProjectForm({
-        ...projectForm,
-        images: [...projectForm.images, url],
-      });
+  const removeImage = async (index: number, imageUrl: string) => {
+    // Try to delete from storage if it's a storage URL
+    if (imageUrl.includes("supabase")) {
+      try {
+        const path = imageUrl.split("/project-images/")[1];
+        if (path) {
+          await supabase.storage.from("project-images").remove([path]);
+        }
+      } catch (error) {
+        console.error("Error deleting image from storage:", error);
+      }
     }
-  };
 
-  const removeImage = (index: number) => {
     setProjectForm({
       ...projectForm,
       images: projectForm.images.filter((_, i) => i !== index),
@@ -521,20 +566,45 @@ export default function ContractorProjectsPage() {
             {/* Images */}
             <div>
               <Label className="text-zinc-300">Project Images</Label>
-              <Button
-                type="button"
-                onClick={addImageUrl}
-                variant="outline"
-                className="mt-1.5 w-full border-white/10 text-white hover:bg-white/5"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Image URL
-              </Button>
+
+              {/* Upload Button */}
+              <div className="mt-1.5 space-y-2">
+                <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white/5 border-2 border-white/10 border-dashed rounded-lg appearance-none cursor-pointer hover:border-purple-500/50 hover:bg-white/10">
+                  <div className="flex flex-col items-center space-y-2">
+                    {uploadingImages ? (
+                      <>
+                        <Loader2 className="h-8 w-8 text-purple-400 animate-spin" />
+                        <span className="text-sm text-zinc-400">
+                          Uploading...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-zinc-400" />
+                        <span className="text-sm text-zinc-400">
+                          Click to upload images
+                        </span>
+                        <span className="text-xs text-zinc-500">
+                          PNG, JPG, WEBP up to 10MB
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    disabled={uploadingImages}
+                  />
+                </label>
+              </div>
 
               {projectForm.images.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   {projectForm.images.map((img, index) => (
-                    <div key={index} className="relative group">
+                    <div key={index} className="relative group aspect-square">
                       <Image
                         src={img}
                         alt={`Project ${index + 1}`}
@@ -542,8 +612,9 @@ export default function ContractorProjectsPage() {
                         className="object-cover rounded-lg"
                       />
                       <button
-                        onClick={() => removeImage(index)}
-                        className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        type="button"
+                        onClick={() => removeImage(index, img)}
+                        className="absolute top-1 right-1 p-1.5 bg-red-500 hover:bg-red-600 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="h-3 w-3 text-white" />
                       </button>
