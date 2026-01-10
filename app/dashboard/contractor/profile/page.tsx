@@ -291,6 +291,7 @@ export default function ContractorProfilePage() {
 
   const displayName =
     user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
+  const avatarUrl = user.user_metadata?.avatar_url;
 
   const headerActions = isEditMode ? (
     <>
@@ -348,37 +349,8 @@ export default function ContractorProfilePage() {
     >
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Quick Stats */}
+          {/* Left Column - Stats Only */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Profile Card */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="text-center">
-                {user.user_metadata?.avatar_url ? (
-                  <Image
-                    src={user.user_metadata.avatar_url}
-                    alt={displayName}
-                    width={96}
-                    height={96}
-                    className="w-24 h-24 mx-auto mb-4 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-3xl font-bold">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <h2 className="text-xl font-bold text-white mb-1">
-                  {displayName}
-                </h2>
-                <p className="text-sm text-zinc-400 mb-1">{user.email}</p>
-                <p className="text-xs text-zinc-500 mb-3">
-                  {contractorProfile.business_name}
-                </p>
-                <Badge className={getStatusColor(contractorProfile.status)}>
-                  {contractorProfile.status.toUpperCase()}
-                </Badge>
-              </div>
-            </Card>
-
             {/* Stats Cards */}
             <Card className="p-6 bg-white/5 border-white/10">
               <h3 className="text-lg font-semibold text-white mb-4">
@@ -479,7 +451,7 @@ export default function ContractorProfilePage() {
 
           {/* Right Column - Profile Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information */}
+            {/* Personal Information with Avatar */}
             <Card className="p-6 bg-white/5 border-white/10">
               <div className="flex items-center gap-2 mb-6">
                 <User className="h-5 w-5 text-purple-400" />
@@ -488,6 +460,38 @@ export default function ContractorProfilePage() {
                 </h3>
               </div>
 
+              {/* Avatar Section */}
+              <div className="flex items-start gap-6 mb-6 pb-6 border-b border-white/10">
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
+                    alt={displayName}
+                    width={80}
+                    height={80}
+                    className="w-20 h-20 rounded-full object-cover ring-2 ring-purple-500/20"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold ring-2 ring-purple-500/20">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h2 className="text-xl font-bold text-white mb-1">
+                    {displayName}
+                  </h2>
+                  <p className="text-sm text-zinc-400 mb-2">{user.email}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(contractorProfile.status)}>
+                      {contractorProfile.status.toUpperCase()}
+                    </Badge>
+                    <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                      CONTRACTOR
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <Label className="text-zinc-300 text-sm mb-1.5 block">
@@ -540,12 +544,20 @@ export default function ContractorProfilePage() {
                 </div>
 
                 <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Account Type
+                  <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Member Since
                   </Label>
-                  <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                    CONTRACTOR
-                  </Badge>
+                  <p className="text-white">
+                    {new Date(contractorProfile.created_at).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -868,24 +880,6 @@ export default function ContractorProfilePage() {
                   ))}
                 </div>
               )}
-            </Card>
-
-            {/* Account Created */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-zinc-400" />
-                <p className="text-sm text-zinc-400">
-                  Member since{" "}
-                  {new Date(contractorProfile.created_at).toLocaleDateString(
-                    "en-US",
-                    {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    }
-                  )}
-                </p>
-              </div>
             </Card>
           </div>
         </div>

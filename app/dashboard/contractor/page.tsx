@@ -7,7 +7,6 @@ import { useSupabase } from "@/components/providers/supabase-provider";
 import { ContractorLayout } from "@/components/layout/contractor-layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Profile } from "@/types";
 import { StatsGrid } from "@/components/dashboard/contractor/stats-grid";
 import { ServicesList } from "@/components/dashboard/contractor/services-list";
 import { AvailableProjects } from "@/components/dashboard/contractor/available-projects";
@@ -16,7 +15,6 @@ import { UpcomingSchedule } from "@/components/dashboard/contractor/upcoming-sch
 export default function ContractorDashboardPage() {
   const { supabase } = useSupabase();
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [contractorProfile, setContractorProfile] = useState<any>(null);
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,15 +35,6 @@ export default function ContractorDashboardPage() {
           session.user.email?.split("@")[0] ||
           "User";
         setUserName(displayName.split(" ")[0]);
-
-        // Load user profile
-        const { data: userProfile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
-        if (mounted) setProfile(userProfile);
 
         // Load contractor profile
         const { data: contProfile } = await supabase
