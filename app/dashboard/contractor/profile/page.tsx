@@ -347,302 +347,361 @@ export default function ContractorProfilePage() {
       }}
       actions={headerActions}
     >
-      <div className="p-4 md:p-8 max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Stats Only */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Stats Cards */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                Performance Stats
+      <div className="p-4 md:p-8 ">
+        <div className="space-y-6">
+          {/* Personal Information - Full Width at Top */}
+          <Card className="p-6 bg-white/5 border-white/10">
+            <div className="flex items-center gap-2 mb-6">
+              <User className="h-5 w-5 text-purple-400" />
+              <h3 className="text-xl font-semibold text-white">
+                Personal Information
               </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-yellow-400" />
-                    <span className="text-sm text-zinc-400">Rating</span>
-                  </div>
-                  <span className="text-lg font-semibold text-white">
-                    {contractorProfile.avg_rating > 0
-                      ? contractorProfile.avg_rating.toFixed(1)
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm text-zinc-400">
-                      Completed Jobs
-                    </span>
-                  </div>
-                  <span className="text-lg font-semibold text-white">
-                    {contractorProfile.total_jobs}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm text-zinc-400">Total Reviews</span>
-                  </div>
-                  <span className="text-lg font-semibold text-white">
-                    {contractorProfile.total_reviews}
-                  </span>
-                </div>
-                {contractorProfile.years_experience && (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-green-400" />
-                      <span className="text-sm text-zinc-400">Experience</span>
-                    </div>
-                    <span className="text-lg font-semibold text-white">
-                      {contractorProfile.years_experience}{" "}
-                      {contractorProfile.years_experience === 1
-                        ? "year"
-                        : "years"}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </Card>
+            </div>
 
-            {/* Verification Status */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                Verification
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm text-zinc-400">Insurance</span>
-                  </div>
-                  <Badge
-                    className={
-                      contractorProfile.insurance_verified
-                        ? "bg-green-500/10 text-green-400 border-green-500/20"
-                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
-                    }
-                  >
-                    {contractorProfile.insurance_verified
-                      ? "Verified"
-                      : "Not Verified"}
+            {/* Avatar Section */}
+            <div className="flex items-start gap-6 mb-6 pb-6 border-b border-white/10">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={displayName}
+                  width={96}
+                  height={96}
+                  className="w-24 h-24 rounded-full object-cover ring-2 ring-purple-500/20"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold ring-2 ring-purple-500/20">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-white mb-1">
+                  {displayName}
+                </h2>
+                <p className="text-sm text-zinc-400 mb-3">{user.email}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={getStatusColor(contractorProfile.status)}>
+                    {contractorProfile.status.toUpperCase()}
                   </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm text-zinc-400">License</span>
-                  </div>
-                  <Badge
-                    className={
-                      contractorProfile.license_number
-                        ? "bg-green-500/10 text-green-400 border-green-500/20"
-                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
-                    }
-                  >
-                    {contractorProfile.license_number
-                      ? "Provided"
-                      : "Not Provided"}
+                  <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                    CONTRACTOR
                   </Badge>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Right Column - Profile Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information with Avatar */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-2 mb-6">
-                <User className="h-5 w-5 text-purple-400" />
-                <h3 className="text-xl font-semibold text-white">
-                  Personal Information
-                </h3>
-              </div>
-
-              {/* Avatar Section */}
-              <div className="flex items-start gap-6 mb-6 pb-6 border-b border-white/10">
-                {avatarUrl ? (
-                  <Image
-                    src={avatarUrl}
-                    alt={displayName}
-                    width={80}
-                    height={80}
-                    className="w-20 h-20 rounded-full object-cover ring-2 ring-purple-500/20"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-linear-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold ring-2 ring-purple-500/20">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-white mb-1">
-                    {displayName}
-                  </h2>
-                  <p className="text-sm text-zinc-400 mb-2">{user.email}</p>
-                  <div className="flex items-center gap-2">
-                    <Badge className={getStatusColor(contractorProfile.status)}>
-                      {contractorProfile.status.toUpperCase()}
-                    </Badge>
-                    <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                      CONTRACTOR
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact Information */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Full Name
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      value={formData.full_name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, full_name: e.target.value })
-                      }
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="Your full name"
-                    />
-                  ) : (
-                    <p className="text-white">{displayName}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    Phone Number
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="+60 12 345 6789"
-                    />
-                  ) : (
-                    <p className="text-white">
-                      {user.user_metadata?.phone || "Not provided"}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    Email
-                  </Label>
-                  <p className="text-white">{user.email}</p>
-                  <span className="text-xs text-zinc-500">
-                    Cannot be changed
-                  </span>
-                </div>
-
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    Member Since
-                  </Label>
-                  <p className="text-white">
+                  <span className="text-xs text-zinc-500 ml-2">
+                    <Calendar className="h-3 w-3 inline mr-1" />
+                    Member since{" "}
                     {new Date(contractorProfile.created_at).toLocaleDateString(
                       "en-US",
-                      {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      }
+                      { year: "numeric", month: "long", day: "numeric" }
                     )}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div>
+                <Label className="text-zinc-300 text-sm mb-1.5 block">
+                  Full Name
+                </Label>
+                {isEditMode ? (
+                  <Input
+                    value={formData.full_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, full_name: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white"
+                    placeholder="Your full name"
+                  />
+                ) : (
+                  <p className="text-white">{displayName}</p>
+                )}
+              </div>
+
+              <div>
+                <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  Phone Number
+                </Label>
+                {isEditMode ? (
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    className="bg-white/5 border-white/10 text-white"
+                    placeholder="+60 12 345 6789"
+                  />
+                ) : (
+                  <p className="text-white">
+                    {user.user_metadata?.phone || "Not provided"}
                   </p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Business Information */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-2 mb-6">
-                <Building2 className="h-5 w-5 text-purple-400" />
-                <h3 className="text-xl font-semibold text-white">
-                  Business Information
-                </h3>
+                )}
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Business Name *
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      value={formData.business_name}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          business_name: e.target.value,
-                        })
-                      }
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="Your business name"
-                    />
-                  ) : (
-                    <p className="text-white">
-                      {contractorProfile.business_name}
-                    </p>
-                  )}
+              <div>
+                <Label className="text-zinc-300 text-sm mb-1.5 flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  Email
+                </Label>
+                <p className="text-white">{user.email}</p>
+                <span className="text-xs text-zinc-500">Cannot be changed</span>
+              </div>
+
+              <div>
+                <Label className="text-zinc-300 text-sm mb-1.5 block">
+                  Business Name
+                </Label>
+                <p className="text-white font-medium">
+                  {contractorProfile.business_name}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Business Information & Performance Stats Grid */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Business Information - 2/3 width */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Business Information */}
+              <Card className="p-6 bg-white/5 border-white/10">
+                <div className="flex items-center gap-2 mb-6">
+                  <Building2 className="h-5 w-5 text-purple-400" />
+                  <h3 className="text-xl font-semibold text-white">
+                    Business Information
+                  </h3>
                 </div>
 
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Bio / Description
-                  </Label>
-                  {isEditMode ? (
-                    <Textarea
-                      value={formData.bio}
-                      onChange={(e) =>
-                        setFormData({ ...formData, bio: e.target.value })
-                      }
-                      className="min-h-24 bg-white/5 border-white/10 text-white"
-                      placeholder="Tell customers about your business and expertise..."
-                    />
-                  ) : (
-                    <p className="text-white whitespace-pre-wrap">
-                      {contractorProfile.bio || "No bio provided"}
-                    </p>
-                  )}
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-zinc-300 text-sm mb-1.5 block">
+                      Business Name *
+                    </Label>
+                    {isEditMode ? (
+                      <Input
+                        value={formData.business_name}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            business_name: e.target.value,
+                          })
+                        }
+                        className="bg-white/5 border-white/10 text-white"
+                        placeholder="Your business name"
+                      />
+                    ) : (
+                      <p className="text-white">
+                        {contractorProfile.business_name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label className="text-zinc-300 text-sm mb-1.5 block">
+                      Bio / Description
+                    </Label>
+                    {isEditMode ? (
+                      <Textarea
+                        value={formData.bio}
+                        onChange={(e) =>
+                          setFormData({ ...formData, bio: e.target.value })
+                        }
+                        className="min-h-24 bg-white/5 border-white/10 text-white"
+                        placeholder="Tell customers about your business and expertise..."
+                      />
+                    ) : (
+                      <p className="text-white whitespace-pre-wrap">
+                        {contractorProfile.bio || "No bio provided"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-1.5 block">
+                        Years of Experience
+                      </Label>
+                      {isEditMode ? (
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.years_experience}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              years_experience: e.target.value,
+                            })
+                          }
+                          className="bg-white/5 border-white/10 text-white"
+                          placeholder="5"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {contractorProfile.years_experience
+                            ? `${contractorProfile.years_experience} ${
+                                contractorProfile.years_experience === 1
+                                  ? "year"
+                                  : "years"
+                              }`
+                            : "Not specified"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-1.5 block">
+                        License Number
+                      </Label>
+                      {isEditMode ? (
+                        <Input
+                          value={formData.license_number}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              license_number: e.target.value,
+                            })
+                          }
+                          className="bg-white/5 border-white/10 text-white"
+                          placeholder="ABC123456"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {contractorProfile.license_number || "Not provided"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Location Information */}
+              <Card className="p-6 bg-white/5 border-white/10">
+                <div className="flex items-center gap-2 mb-6">
+                  <MapPin className="h-5 w-5 text-purple-400" />
+                  <h3 className="text-xl font-semibold text-white">Location</h3>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-zinc-300 text-sm mb-1.5 block">
+                      Street Address
+                    </Label>
+                    {isEditMode ? (
+                      <Input
+                        value={formData.address}
+                        onChange={(e) =>
+                          setFormData({ ...formData, address: e.target.value })
+                        }
+                        className="bg-white/5 border-white/10 text-white"
+                        placeholder="123 Main Street"
+                      />
+                    ) : (
+                      <p className="text-white">
+                        {contractorProfile.address || "Not provided"}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-1.5 block">
+                        City
+                      </Label>
+                      {isEditMode ? (
+                        <Input
+                          value={formData.city}
+                          onChange={(e) =>
+                            setFormData({ ...formData, city: e.target.value })
+                          }
+                          className="bg-white/5 border-white/10 text-white"
+                          placeholder="Kuala Lumpur"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {contractorProfile.city || "Not provided"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-1.5 block">
+                        State
+                      </Label>
+                      {isEditMode ? (
+                        <Input
+                          value={formData.state}
+                          onChange={(e) =>
+                            setFormData({ ...formData, state: e.target.value })
+                          }
+                          className="bg-white/5 border-white/10 text-white"
+                          placeholder="Selangor"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {contractorProfile.state || "Not provided"}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-zinc-300 text-sm mb-1.5 block">
+                        Zip Code
+                      </Label>
+                      {isEditMode ? (
+                        <Input
+                          value={formData.zip_code}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              zip_code: e.target.value,
+                            })
+                          }
+                          className="bg-white/5 border-white/10 text-white"
+                          placeholder="50000"
+                        />
+                      ) : (
+                        <p className="text-white">
+                          {contractorProfile.zip_code || "Not provided"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Pricing Information */}
+              <Card className="p-6 bg-white/5 border-white/10">
+                <div className="flex items-center gap-2 mb-6">
+                  <DollarSign className="h-5 w-5 text-purple-400" />
+                  <h3 className="text-xl font-semibold text-white">Pricing</h3>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
                     <Label className="text-zinc-300 text-sm mb-1.5 block">
-                      Years of Experience
+                      Hourly Rate (RM)
                     </Label>
                     {isEditMode ? (
                       <Input
                         type="number"
                         min="0"
-                        max="100"
-                        value={formData.years_experience}
+                        step="0.01"
+                        value={formData.hourly_rate}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            years_experience: e.target.value,
+                            hourly_rate: e.target.value,
                           })
                         }
                         className="bg-white/5 border-white/10 text-white"
-                        placeholder="5"
+                        placeholder="150.00"
                       />
                     ) : (
                       <p className="text-white">
-                        {contractorProfile.years_experience
-                          ? `${contractorProfile.years_experience} ${
-                              contractorProfile.years_experience === 1
-                                ? "year"
-                                : "years"
-                            }`
+                        {contractorProfile.hourly_rate
+                          ? `RM ${contractorProfile.hourly_rate.toFixed(
+                              2
+                            )}/hour`
                           : "Not specified"}
                       </p>
                     )}
@@ -650,238 +709,191 @@ export default function ContractorProfilePage() {
 
                   <div>
                     <Label className="text-zinc-300 text-sm mb-1.5 block">
-                      License Number
+                      Minimum Project Size (RM)
                     </Label>
                     {isEditMode ? (
                       <Input
-                        value={formData.license_number}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.min_project_size}
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            license_number: e.target.value,
+                            min_project_size: e.target.value,
                           })
                         }
                         className="bg-white/5 border-white/10 text-white"
-                        placeholder="ABC123456"
+                        placeholder="500.00"
                       />
                     ) : (
                       <p className="text-white">
-                        {contractorProfile.license_number || "Not provided"}
+                        {contractorProfile.min_project_size
+                          ? `RM ${contractorProfile.min_project_size.toFixed(
+                              2
+                            )}`
+                          : "Not specified"}
                       </p>
                     )}
                   </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+            </div>
 
-            {/* Location Information */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-2 mb-6">
-                <MapPin className="h-5 w-5 text-purple-400" />
-                <h3 className="text-xl font-semibold text-white">Location</h3>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Street Address
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      value={formData.address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
-                      }
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="123 Main Street"
-                    />
-                  ) : (
-                    <p className="text-white">
-                      {contractorProfile.address || "Not provided"}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-zinc-300 text-sm mb-1.5 block">
-                      City
-                    </Label>
-                    {isEditMode ? (
-                      <Input
-                        value={formData.city}
-                        onChange={(e) =>
-                          setFormData({ ...formData, city: e.target.value })
-                        }
-                        className="bg-white/5 border-white/10 text-white"
-                        placeholder="Kuala Lumpur"
-                      />
-                    ) : (
-                      <p className="text-white">
-                        {contractorProfile.city || "Not provided"}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label className="text-zinc-300 text-sm mb-1.5 block">
-                      State
-                    </Label>
-                    {isEditMode ? (
-                      <Input
-                        value={formData.state}
-                        onChange={(e) =>
-                          setFormData({ ...formData, state: e.target.value })
-                        }
-                        className="bg-white/5 border-white/10 text-white"
-                        placeholder="Selangor"
-                      />
-                    ) : (
-                      <p className="text-white">
-                        {contractorProfile.state || "Not provided"}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label className="text-zinc-300 text-sm mb-1.5 block">
-                      Zip Code
-                    </Label>
-                    {isEditMode ? (
-                      <Input
-                        value={formData.zip_code}
-                        onChange={(e) =>
-                          setFormData({ ...formData, zip_code: e.target.value })
-                        }
-                        className="bg-white/5 border-white/10 text-white"
-                        placeholder="50000"
-                      />
-                    ) : (
-                      <p className="text-white">
-                        {contractorProfile.zip_code || "Not provided"}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Pricing Information */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center gap-2 mb-6">
-                <DollarSign className="h-5 w-5 text-purple-400" />
-                <h3 className="text-xl font-semibold text-white">Pricing</h3>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Hourly Rate (RM)
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.hourly_rate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          hourly_rate: e.target.value,
-                        })
-                      }
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="150.00"
-                    />
-                  ) : (
-                    <p className="text-white">
-                      {contractorProfile.hourly_rate
-                        ? `RM ${contractorProfile.hourly_rate.toFixed(2)}/hour`
-                        : "Not specified"}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-zinc-300 text-sm mb-1.5 block">
-                    Minimum Project Size (RM)
-                  </Label>
-                  {isEditMode ? (
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.min_project_size}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          min_project_size: e.target.value,
-                        })
-                      }
-                      className="bg-white/5 border-white/10 text-white"
-                      placeholder="500.00"
-                    />
-                  ) : (
-                    <p className="text-white">
-                      {contractorProfile.min_project_size
-                        ? `RM ${contractorProfile.min_project_size.toFixed(2)}`
-                        : "Not specified"}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            {/* Services */}
-            <Card className="p-6 bg-white/5 border-white/10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-purple-400" />
-                  <h3 className="text-xl font-semibold text-white">
-                    Services Offered
-                  </h3>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => router.push("/dashboard/contractor/setup")}
-                  className="bg-purple-500 hover:bg-purple-600"
-                >
-                  Manage Services
-                </Button>
-              </div>
-
-              {services.length === 0 ? (
-                <p className="text-zinc-400 text-center py-8">
-                  No services added yet. Add services to get more job
-                  opportunities.
-                </p>
-              ) : (
-                <div className="grid md:grid-cols-2 gap-4">
-                  {services.map((service) => (
-                    <div
-                      key={service.id}
-                      className="p-4 bg-white/5 border border-white/10 rounded-lg"
-                    >
-                      <h4 className="font-semibold text-white mb-2">
-                        {service.service_categories.name}
-                      </h4>
-                      {service.description && (
-                        <p className="text-sm text-zinc-400 mb-2">
-                          {service.description}
-                        </p>
-                      )}
-                      {(service.price_range_min || service.price_range_max) && (
-                        <p className="text-sm text-purple-400">
-                          RM {service.price_range_min || "0"} - RM{" "}
-                          {service.price_range_max || "0"}
-                        </p>
-                      )}
+            {/* Right Sidebar - Performance Stats & Verification */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Performance Stats */}
+              <Card className="p-6 bg-white/5 border-white/10">
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  Performance Stats
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-yellow-400" />
+                      <span className="text-sm text-zinc-400">Rating</span>
                     </div>
-                  ))}
+                    <span className="text-lg font-semibold text-white">
+                      {contractorProfile.avg_rating > 0
+                        ? contractorProfile.avg_rating.toFixed(1)
+                        : "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-purple-400" />
+                      <span className="text-sm text-zinc-400">
+                        Completed Jobs
+                      </span>
+                    </div>
+                    <span className="text-lg font-semibold text-white">
+                      {contractorProfile.total_jobs}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-4 w-4 text-blue-400" />
+                      <span className="text-sm text-zinc-400">
+                        Total Reviews
+                      </span>
+                    </div>
+                    <span className="text-lg font-semibold text-white">
+                      {contractorProfile.total_reviews}
+                    </span>
+                  </div>
+                  {contractorProfile.years_experience && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-green-400" />
+                        <span className="text-sm text-zinc-400">
+                          Experience
+                        </span>
+                      </div>
+                      <span className="text-lg font-semibold text-white">
+                        {contractorProfile.years_experience}{" "}
+                        {contractorProfile.years_experience === 1
+                          ? "year"
+                          : "years"}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </Card>
+              </Card>
+
+              {/* Verification Status */}
+              <Card className="p-6 bg-white/5 border-white/10">
+                <h3 className="text-lg font-semibold text-white mb-4">
+                  Verification
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-blue-400" />
+                      <span className="text-sm text-zinc-400">Insurance</span>
+                    </div>
+                    <Badge
+                      className={
+                        contractorProfile.insurance_verified
+                          ? "bg-green-500/10 text-green-400 border-green-500/20"
+                          : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                      }
+                    >
+                      {contractorProfile.insurance_verified
+                        ? "Verified"
+                        : "Not Verified"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-4 w-4 text-purple-400" />
+                      <span className="text-sm text-zinc-400">License</span>
+                    </div>
+                    <Badge
+                      className={
+                        contractorProfile.license_number
+                          ? "bg-green-500/10 text-green-400 border-green-500/20"
+                          : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                      }
+                    >
+                      {contractorProfile.license_number
+                        ? "Provided"
+                        : "Not Provided"}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
+
+          {/* Services - Full Width at Bottom */}
+          <Card className="p-6 bg-white/5 border-white/10">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-5 w-5 text-purple-400" />
+                <h3 className="text-xl font-semibold text-white">
+                  Services Offered
+                </h3>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => router.push("/dashboard/contractor/setup")}
+                className="bg-purple-500 hover:bg-purple-600"
+              >
+                Manage Services
+              </Button>
+            </div>
+
+            {services.length === 0 ? (
+              <p className="text-zinc-400 text-center py-8">
+                No services added yet. Add services to get more job
+                opportunities.
+              </p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {services.map((service) => (
+                  <div
+                    key={service.id}
+                    className="p-4 bg-white/5 border border-white/10 rounded-lg"
+                  >
+                    <h4 className="font-semibold text-white mb-2">
+                      {service.service_categories.name}
+                    </h4>
+                    {service.description && (
+                      <p className="text-sm text-zinc-400 mb-2">
+                        {service.description}
+                      </p>
+                    )}
+                    {(service.price_range_min || service.price_range_max) && (
+                      <p className="text-sm text-purple-400">
+                        RM {service.price_range_min || "0"} - RM{" "}
+                        {service.price_range_max || "0"}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     </ContractorLayout>
