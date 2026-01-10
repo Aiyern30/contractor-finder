@@ -71,6 +71,24 @@ interface Filters {
   dateRange: string;
 }
 
+// Add helper type for Supabase response
+interface JobRequestRaw {
+  id: string;
+  title: string;
+  description: string;
+  location: string | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  preferred_date: string | null;
+  urgency: string | null;
+  status: string;
+  created_at: string;
+  category_id: string;
+  customer_id: string;
+  service_categories: Array<{ name: string }>;
+  profiles: Array<{ full_name: string }>;
+}
+
 export default function ContractorJobsPage() {
   const { supabase } = useSupabase();
   const router = useRouter();
@@ -78,7 +96,12 @@ export default function ContractorJobsPage() {
   const [myQuotes, setMyQuotes] = useState<Quote[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState("available");
+  const [contractorId, setContractorId] = useState<string>("");
+  const [contractorCategoryIds, setContractorCategoryIds] = useState<string[]>(
+    []
+  );
   const [filters, setFilters] = useState<Filters>({
     urgency: "all",
     budgetMin: "",
@@ -88,9 +111,12 @@ export default function ContractorJobsPage() {
     dateRange: "all",
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
+    []
+  );
 
-  const loadData = useCallback(async () => {
+  // Load initial contractor data
+  const loadContractorData = useCallback(async () => {
     try {
       const {
         data: { session },
@@ -98,10 +124,9 @@ export default function ContractorJobsPage() {
 
       if (!session?.user) {
         router.push("/");
-        return;
+        return null;
       }
 
-      // Get contractor profile
       const { data: profile } = await supabase
         .from("contractor_profiles")
         .select("id")
@@ -110,63 +135,18 @@ export default function ContractorJobsPage() {
 
       if (!profile) {
         router.push("/dashboard/contractor/setup");
-        return;
+        return null;
       }
 
-      // Load contractor's service categories
+      setContractorId(profile.id);
+
       const { data: services } = await supabase
         .from("contractor_services")
         .select("category_id")
         .eq("contractor_id", profile.id);
 
       const categoryIds = services?.map((s) => s.category_id) || [];
-
-      // Load contractor's quotes/bids first
-      const { data: quotes } = await supabase
-        .from("quotes")
-        .select(
-          `
-          *,
-          job_requests (
-            *,
-            service_categories (name),
-            profiles (full_name)
-          )
-        `
-        )
-        .eq("contractor_id", profile.id)
-        .order("created_at", { ascending: false });
-
-      setMyQuotes(quotes || []);
-
-      // Get job IDs that contractor has already quoted on
-      const quotedJobIds = quotes?.map((q) => q.job_request_id) || [];
-
-      if (categoryIds.length > 0) {
-        // Load available jobs matching contractor's services
-        // EXCLUDE jobs they've already quoted on
-        let query = supabase
-          .from("job_requests")
-          .select(
-            `
-            *,
-            service_categories (name),
-            profiles (full_name)
-          `
-          )
-          .eq("status", "open")
-          .in("category_id", categoryIds)
-          .order("created_at", { ascending: false });
-
-        // Only add the not-in filter if there are quoted jobs
-        if (quotedJobIds.length > 0) {
-          query = query.not("id", "in", `(${quotedJobIds.join(",")})`);
-        }
-
-        const { data: jobs } = await query;
-
-        setAvailableJobs(jobs || []);
-      }
+      setContractorCategoryIds(categoryIds);
 
       // Load categories for filter dropdown
       const { data: cats } = await supabase
@@ -175,75 +155,268 @@ export default function ContractorJobsPage() {
         .order("name");
 
       setCategories(cats || []);
+
+      return { contractorId: profile.id, categoryIds };
     } catch (error) {
-      console.error("Error loading jobs:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error loading contractor data:", error);
+      return null;
     }
   }, [supabase, router]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Load available jobs with server-side filtering
+  const loadAvailableJobs = useCallback(
+    async (
+      contractorId: string,
+      categoryIds: string[],
+      quotedJobIds: string[]
+    ) => {
+      if (categoryIds.length === 0) {
+        setAvailableJobs([]);
+        return;
+      }
 
-  // Apply filters to jobs
-  const applyFilters = useCallback((jobs: JobRequest[]) => {
-    return jobs.filter((job) => {
-      // Search query filter
-      const matchesSearch =
-        searchQuery === "" ||
-        job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.service_categories.name.toLowerCase().includes(searchQuery.toLowerCase());
+      try {
+        setIsSearching(true);
 
-      // Urgency filter
-      const matchesUrgency =
-        filters.urgency === "all" || job.urgency === filters.urgency;
+        // Build query with specific columns to avoid RLS recursion
+        let query = supabase
+          .from("job_requests")
+          .select(
+            `
+            id,
+            title,
+            description,
+            location,
+            budget_min,
+            budget_max,
+            preferred_date,
+            urgency,
+            status,
+            created_at,
+            category_id,
+            customer_id,
+            service_categories!job_requests_category_id_fkey (
+              name
+            ),
+            profiles!job_requests_customer_id_fkey (
+              full_name
+            )
+          `,
+            { count: "exact" }
+          )
+          .eq("status", "open")
+          .in("category_id", categoryIds);
 
-      // Budget filter
-      const matchesBudget =
-        (filters.budgetMin === "" || (job.budget_max && job.budget_max >= parseFloat(filters.budgetMin))) &&
-        (filters.budgetMax === "" || (job.budget_min && job.budget_min <= parseFloat(filters.budgetMax)));
-
-      // Category filter
-      const matchesCategory =
-        filters.category === "all" || job.category_id === filters.category;
-
-      // Location filter
-      const matchesLocation =
-        filters.location === "" ||
-        (job.location && job.location.toLowerCase().includes(filters.location.toLowerCase()));
-
-      // Date range filter
-      const matchesDateRange = (() => {
-        if (filters.dateRange === "all" || !job.created_at) return true;
-        const jobDate = new Date(job.created_at);
-        const now = new Date();
-        const diffDays = Math.floor((now.getTime() - jobDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        switch (filters.dateRange) {
-          case "today":
-            return diffDays === 0;
-          case "week":
-            return diffDays <= 7;
-          case "month":
-            return diffDays <= 30;
-          default:
-            return true;
+        // Exclude jobs already quoted on
+        if (quotedJobIds.length > 0) {
+          query = query.not("id", "in", `(${quotedJobIds.join(",")})`);
         }
-      })();
 
-      return matchesSearch && matchesUrgency && matchesBudget && matchesCategory && matchesLocation && matchesDateRange;
-    });
-  }, [searchQuery, filters]);
+        // Search filter (searches in title, description)
+        if (searchQuery.trim()) {
+          query = query.or(
+            `title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+          );
+        }
 
-  const filteredAvailableJobs = applyFilters(availableJobs);
+        // Urgency filter
+        if (filters.urgency !== "all") {
+          query = query.eq("urgency", filters.urgency);
+        }
 
-  const filteredMyQuotes = myQuotes.filter(
-    (quote) =>
-      quote.job_requests.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      quote.job_requests.description.toLowerCase().includes(searchQuery.toLowerCase())
+        // Category filter
+        if (filters.category !== "all") {
+          query = query.eq("category_id", filters.category);
+        }
+
+        // Budget filter
+        if (filters.budgetMin) {
+          query = query.gte("budget_max", parseFloat(filters.budgetMin));
+        }
+        if (filters.budgetMax) {
+          query = query.lte("budget_min", parseFloat(filters.budgetMax));
+        }
+
+        // Location filter
+        if (filters.location.trim()) {
+          query = query.ilike("location", `%${filters.location}%`);
+        }
+
+        // Date range filter
+        if (filters.dateRange !== "all") {
+          const now = new Date();
+          let dateThreshold: Date;
+
+          switch (filters.dateRange) {
+            case "today":
+              dateThreshold = new Date(now.setHours(0, 0, 0, 0));
+              break;
+            case "week":
+              dateThreshold = new Date(now.setDate(now.getDate() - 7));
+              break;
+            case "month":
+              dateThreshold = new Date(now.setDate(now.getDate() - 30));
+              break;
+            default:
+              dateThreshold = new Date(0);
+          }
+
+          query = query.gte("created_at", dateThreshold.toISOString());
+        }
+
+        query = query.order("created_at", { ascending: false });
+
+        const { data: jobs, error } = await query;
+
+        if (error) throw error;
+
+        // Transform the data to match JobRequest interface
+        const transformedJobs: JobRequest[] = (jobs as JobRequestRaw[] || []).map((job) => ({
+          id: job.id,
+          title: job.title,
+          description: job.description,
+          location: job.location,
+          budget_min: job.budget_min,
+          budget_max: job.budget_max,
+          preferred_date: job.preferred_date,
+          urgency: job.urgency,
+          status: job.status,
+          created_at: job.created_at,
+          category_id: job.category_id,
+          service_categories: {
+            name: job.service_categories?.[0]?.name || "Unknown",
+          },
+          profiles: {
+            full_name: job.profiles?.[0]?.full_name || "Unknown",
+          },
+        }));
+
+        setAvailableJobs(transformedJobs);
+      } catch (error) {
+        console.error("Error loading available jobs:", error);
+        setAvailableJobs([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [supabase, searchQuery, filters]
   );
+
+  // Load contractor's quotes with search
+  const loadMyQuotes = useCallback(
+    async (contractorId: string) => {
+      try {
+        let query = supabase
+          .from("quotes")
+          .select(
+            `
+          *,
+          job_requests (
+            *,
+            service_categories (name),
+            profiles (full_name)
+          )
+        `
+          )
+          .eq("contractor_id", contractorId);
+
+        // Search in job title and description
+        if (searchQuery.trim()) {
+          // Note: We need to filter this after fetching since we're searching in related table
+          // For better performance, consider adding a full-text search or materialized view
+          const { data: allQuotes } = await query.order("created_at", {
+            ascending: false,
+          });
+
+          const filtered = allQuotes?.filter(
+            (quote: Quote) =>
+              quote.job_requests.title
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
+              quote.job_requests.description
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase())
+          );
+
+          setMyQuotes(filtered || []);
+        } else {
+          query = query.order("created_at", { ascending: false });
+          const { data } = await query;
+          setMyQuotes(data || []);
+        }
+      } catch (error) {
+        console.error("Error loading quotes:", error);
+        setMyQuotes([]);
+      }
+    },
+    [supabase, searchQuery]
+  );
+
+  // Initial load
+  useEffect(() => {
+    async function initialize() {
+      setIsLoading(true);
+      const contractorData = await loadContractorData();
+
+      if (contractorData) {
+        const { contractorId, categoryIds } = contractorData;
+
+        // Load quotes first to get quoted job IDs
+        const { data: quotes } = await supabase
+          .from("quotes")
+          .select("job_request_id")
+          .eq("contractor_id", contractorId);
+
+        const quotedJobIds = quotes?.map((q) => q.job_request_id) || [];
+
+        // Load both tabs data
+        await Promise.all([
+          loadAvailableJobs(contractorId, categoryIds, quotedJobIds),
+          loadMyQuotes(contractorId),
+        ]);
+      }
+
+      setIsLoading(false);
+    }
+
+    initialize();
+  }, [loadAvailableJobs, loadContractorData, loadMyQuotes, supabase]);
+
+  // Debounced search and filter effect
+  useEffect(() => {
+    if (!contractorId || !contractorCategoryIds.length) return;
+
+    const timeoutId = setTimeout(async () => {
+      // Get quoted job IDs
+      const { data: quotes } = await supabase
+        .from("quotes")
+        .select("job_request_id")
+        .eq("contractor_id", contractorId);
+
+      const quotedJobIds = quotes?.map((q) => q.job_request_id) || [];
+
+      if (activeTab === "available") {
+        await loadAvailableJobs(
+          contractorId,
+          contractorCategoryIds,
+          quotedJobIds
+        );
+      } else {
+        await loadMyQuotes(contractorId);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    searchQuery,
+    filters,
+    activeTab,
+    contractorId,
+    contractorCategoryIds,
+    loadAvailableJobs,
+    loadMyQuotes,
+    supabase,
+  ]);
 
   const resetFilters = () => {
     setFilters({
@@ -335,6 +508,9 @@ export default function ContractorJobsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
             />
+            {isSearching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-purple-400" />
+            )}
           </div>
           <Popover open={showFilters} onOpenChange={setShowFilters}>
             <PopoverTrigger asChild>
@@ -351,7 +527,10 @@ export default function ContractorJobsPage() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 bg-zinc-900 border-zinc-800 text-white" align="end">
+            <PopoverContent
+              className="w-80 bg-zinc-900 border-zinc-800 text-white"
+              align="end"
+            >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-lg">Filters</h3>
@@ -370,7 +549,12 @@ export default function ContractorJobsPage() {
                 {/* Urgency Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm text-zinc-300">Urgency</Label>
-                  <Select value={filters.urgency} onValueChange={(value) => setFilters({ ...filters, urgency: value })}>
+                  <Select
+                    value={filters.urgency}
+                    onValueChange={(value) =>
+                      setFilters({ ...filters, urgency: value })
+                    }
+                  >
                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -386,20 +570,26 @@ export default function ContractorJobsPage() {
 
                 {/* Budget Range Filter */}
                 <div className="space-y-2">
-                  <Label className="text-sm text-zinc-300">Budget Range (RM)</Label>
+                  <Label className="text-sm text-zinc-300">
+                    Budget Range (RM)
+                  </Label>
                   <div className="grid grid-cols-2 gap-2">
                     <Input
                       type="number"
                       placeholder="Min"
                       value={filters.budgetMin}
-                      onChange={(e) => setFilters({ ...filters, budgetMin: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, budgetMin: e.target.value })
+                      }
                       className="bg-white/5 border-white/10 text-white"
                     />
                     <Input
                       type="number"
                       placeholder="Max"
                       value={filters.budgetMax}
-                      onChange={(e) => setFilters({ ...filters, budgetMax: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, budgetMax: e.target.value })
+                      }
                       className="bg-white/5 border-white/10 text-white"
                     />
                   </div>
@@ -407,8 +597,15 @@ export default function ContractorJobsPage() {
 
                 {/* Category Filter */}
                 <div className="space-y-2">
-                  <Label className="text-sm text-zinc-300">Service Category</Label>
-                  <Select value={filters.category} onValueChange={(value) => setFilters({ ...filters, category: value })}>
+                  <Label className="text-sm text-zinc-300">
+                    Service Category
+                  </Label>
+                  <Select
+                    value={filters.category}
+                    onValueChange={(value) =>
+                      setFilters({ ...filters, category: value })
+                    }
+                  >
                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -429,7 +626,9 @@ export default function ContractorJobsPage() {
                   <Input
                     placeholder="Enter city or area..."
                     value={filters.location}
-                    onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+                    onChange={(e) =>
+                      setFilters({ ...filters, location: e.target.value })
+                    }
                     className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500"
                   />
                 </div>
@@ -437,7 +636,12 @@ export default function ContractorJobsPage() {
                 {/* Date Posted Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm text-zinc-300">Posted</Label>
-                  <Select value={filters.dateRange} onValueChange={(value) => setFilters({ ...filters, dateRange: value })}>
+                  <Select
+                    value={filters.dateRange}
+                    onValueChange={(value) =>
+                      setFilters({ ...filters, dateRange: value })
+                    }
+                  >
                     <SelectTrigger className="bg-white/5 border-white/10 text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -467,32 +671,38 @@ export default function ContractorJobsPage() {
             className="data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=inactive]:text-zinc-400"
           >
             <Briefcase className="h-4 w-4 mr-2" />
-            Available Jobs ({filteredAvailableJobs.length})
+            Available Jobs ({availableJobs.length})
           </TabsTrigger>
           <TabsTrigger
             value="my-bids"
             className="data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=inactive]:text-zinc-400"
           >
             <CheckCircle className="h-4 w-4 mr-2" />
-            My Bids ({filteredMyQuotes.length})
+            My Bids ({myQuotes.length})
           </TabsTrigger>
         </TabsList>
 
         {/* Available Jobs Tab */}
         <TabsContent value="available" className="space-y-4">
-          {filteredAvailableJobs.length === 0 ? (
+          {isSearching && availableJobs.length === 0 ? (
+            <Card className="p-12 bg-white/5 border-white/10 text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-purple-500 mx-auto mb-4" />
+              <p className="text-zinc-400">Searching for jobs...</p>
+            </Card>
+          ) : availableJobs.length === 0 ? (
             <Card className="p-12 bg-white/5 border-white/10 text-center">
               <Briefcase className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">
                 No Available Jobs
               </h3>
               <p className="text-zinc-400">
-                Check back later for new job opportunities matching your
-                services
+                {searchQuery || activeFiltersCount > 0
+                  ? "No jobs match your search criteria. Try adjusting your filters."
+                  : "Check back later for new job opportunities matching your services"}
               </p>
             </Card>
           ) : (
-            filteredAvailableJobs.map((job) => (
+            availableJobs.map((job) => (
               <Card
                 key={job.id}
                 className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
@@ -567,18 +777,20 @@ export default function ContractorJobsPage() {
 
         {/* My Bids Tab */}
         <TabsContent value="my-bids" className="space-y-4">
-          {filteredMyQuotes.length === 0 ? (
+          {myQuotes.length === 0 ? (
             <Card className="p-12 bg-white/5 border-white/10 text-center">
               <CheckCircle className="h-16 w-16 text-zinc-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">
                 No Bids Yet
               </h3>
               <p className="text-zinc-400">
-                Start bidding on available jobs to grow your business
+                {searchQuery
+                  ? "No bids match your search."
+                  : "Start bidding on available jobs to grow your business"}
               </p>
             </Card>
           ) : (
-            filteredMyQuotes.map((quote) => (
+            myQuotes.map((quote) => (
               <Card
                 key={quote.id}
                 className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
