@@ -16,6 +16,8 @@ import {
   FileText,
   DollarSign,
 } from "lucide-react";
+import { ReviewForm } from "@/components/reviews/review-form";
+import { Star as StarIcon } from "lucide-react";
 
 interface Job {
   id: string;
@@ -35,6 +37,18 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [reviewModal, setReviewModal] = useState<{
+    open: boolean;
+    bookingId: string | null;
+    contractorId: string | null;
+    contractorName: string | null;
+  }>({
+    open: false,
+    bookingId: null,
+    contractorId: null,
+    contractorName: null,
+  });
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -48,6 +62,8 @@ export default function JobsPage() {
           router.push("/login");
           return;
         }
+
+        setCurrentUserId(user.id);
 
         const response = await fetch(`/api/bookings?customerId=${user.id}`);
         if (response.ok) {
@@ -150,6 +166,15 @@ export default function JobsPage() {
       count: jobs.filter((j) => j.status === "completed").length,
     },
   ];
+
+  const openReviewModal = (job: Job) => {
+    setReviewModal({
+      open: true,
+      bookingId: job.id,
+      contractorId: job.contractorId,
+      contractorName: job.contractorName,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -273,6 +298,15 @@ export default function JobsPage() {
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Message
                   </Button>
+                  {job.status === "completed" && (
+                    <Button
+                      onClick={() => openReviewModal(job)}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                    >
+                      <StarIcon className="h-4 w-4 mr-2" />
+                      Write Review
+                    </Button>
+                  )}
                   {job.status === "pending" && (
                     <Button
                       onClick={() => cancelJob(job.id)}
@@ -289,6 +323,37 @@ export default function JobsPage() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {reviewModal.open &&
+        reviewModal.contractorId &&
+        reviewModal.contractorName &&
+        currentUserId && (
+          <ReviewForm
+            isOpen={reviewModal.open}
+            onClose={() =>
+              setReviewModal({
+                open: false,
+                bookingId: null,
+                contractorId: null,
+                contractorName: null,
+              })
+            }
+            contractorId={reviewModal.contractorId}
+            contractorName={reviewModal.contractorName}
+            bookingId={reviewModal.bookingId || undefined}
+            customerId={currentUserId}
+            onReviewSubmitted={() => {
+              // Optionally refresh jobs list or show success message
+              setReviewModal({
+                open: false,
+                bookingId: null,
+                contractorId: null,
+                contractorName: null,
+              });
+            }}
+          />
+        )}
     </div>
   );
 }

@@ -23,6 +23,8 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
+import { ReviewForm } from "@/components/reviews/review-form";
+import { StarIcon } from "lucide-react";
 
 interface ContractorProfile {
   id: string;
@@ -61,6 +63,8 @@ export default function ContractorProfilePage({
   const [bookingTime, setBookingTime] = useState("");
   const [bookingDescription, setBookingDescription] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<string>("");
 
   useEffect(() => {
     const fetchContractorProfile = async () => {
@@ -91,8 +95,19 @@ export default function ContractorProfilePage({
       }
     };
 
+    const fetchCurrentUser = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUser(user.id);
+      }
+    };
+
     fetchContractorProfile();
     fetchReviews();
+    fetchCurrentUser();
   }, [resolvedParams.id]);
 
   const handleBooking = async () => {
@@ -141,6 +156,24 @@ export default function ContractorProfilePage({
 
   const startMessage = () => {
     router.push(`/dashboard/customer/messages?contractor=${resolvedParams.id}`);
+  };
+
+  const handleReviewSubmitted = () => {
+    // Refresh reviews
+    const fetchReviews = async () => {
+      try {
+        const response = await fetch(
+          `/api/contractors/${resolvedParams.id}/reviews`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setReviews(data);
+        }
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+      }
+    };
+    fetchReviews();
   };
 
   if (loading) {
@@ -272,9 +305,20 @@ export default function ContractorProfilePage({
 
         {/* Reviews Section */}
         <Card className="p-8 bg-white/5 border-white/10">
-          <h2 className="text-2xl font-bold text-white mb-6">
-            Reviews ({reviews.length})
-          </h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-white">
+              Reviews ({reviews.length})
+            </h2>
+            {currentUser && (
+              <Button
+                onClick={() => setShowReviewModal(true)}
+                className="bg-purple-500 hover:bg-purple-600 text-white"
+              >
+                <StarIcon className="h-4 w-4 mr-2" />
+                Write a Review
+              </Button>
+            )}
+          </div>
           <div className="space-y-4">
             {reviews.map((review) => (
               <div
@@ -368,6 +412,18 @@ export default function ContractorProfilePage({
             </div>
           </Card>
         </div>
+      )}
+
+      {/* Review Modal */}
+      {currentUser && (
+        <ReviewForm
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          contractorId={resolvedParams.id}
+          contractorName={contractor?.name || ""}
+          customerId={currentUser}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
       )}
     </div>
   );
