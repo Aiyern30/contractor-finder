@@ -6,13 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/user-nav";
-import {
-  MessageSquare,
-  Loader2,
-  FileText,
-  Search,
-  User,
-} from "lucide-react";
+import { MessageSquare, Loader2, FileText, Search, User } from "lucide-react";
 
 interface Conversation {
   id: string;
@@ -68,9 +62,7 @@ export default function ContractorMessagesPage() {
           job_requests:job_request_id(title)
         `
         )
-        .or(
-          `sender_id.eq.${user.id},receiver_id.eq.${user.id}`
-        )
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
       // Group messages by conversation (simplified)
