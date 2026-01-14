@@ -337,45 +337,67 @@ export default function CustomerMessagesPage() {
       return (
         <div
           key={msg.id}
-          className={`flex ${isMe ? "justify-end" : "justify-start"} w-full`}
+          className={`flex ${
+            isMe ? "justify-end" : "justify-start"
+          } w-full mb-2`}
         >
-          <div className="flex items-end gap-2 w-full">
-            {!isMe && isFirstOfGroup && (
-              <div className="flex flex-col items-center mr-2">
-                {msg.sender?.avatar_url ? (
-                  <Image
-                    src={msg.sender.avatar_url}
-                    alt={msg.sender.full_name || "Avatar"}
-                    width={32}
-                    height={32}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
+          <div
+            className={`flex items-end gap-2 ${
+              isMe ? "flex-row-reverse" : "flex-row"
+            } max-w-[85%] sm:max-w-[75%] md:max-w-[70%]`}
+          >
+            {isFirstOfGroup && (
+              <div className="flex flex-col items-center shrink-0">
+                {!isMe ? (
+                  msg.sender?.avatar_url ? (
+                    <Image
+                      src={msg.sender.avatar_url}
+                      alt={msg.sender.full_name || "Avatar"}
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-xs">
+                      {msg.sender?.full_name?.charAt(0) || "?"}
+                    </div>
+                  )
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-xs">
-                    {msg.sender?.full_name?.charAt(0) || "?"}
+                  <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
+                    Me
                   </div>
                 )}
               </div>
             )}
-            <div className={`flex-1`}>
+            {!isFirstOfGroup && <div className="w-8 shrink-0" />}
+
+            <div className="flex flex-col min-w-0">
               {isFirstOfGroup && (
                 <div
-                  className={`text-xs mb-1 font-semibold ${
-                    isMe ? "text-indigo-300 text-right" : "text-zinc-300"
+                  className={`text-xs mb-1 font-semibold px-1 ${
+                    isMe
+                      ? "text-indigo-300 text-right"
+                      : "text-zinc-300 text-left"
                   }`}
                 >
                   {isMe ? "You" : msg.sender?.full_name}
                 </div>
               )}
               <div
-                className={`rounded-lg px-3 py-2 max-w-[70%] ${
+                className={`rounded-2xl px-4 py-2 wrap-break-word ${
                   isMe
-                    ? "bg-indigo-500 text-white ml-auto"
-                    : "bg-zinc-800 text-zinc-200"
+                    ? "bg-indigo-500 text-white rounded-br-md"
+                    : "bg-zinc-800 text-zinc-200 rounded-bl-md"
                 }`}
               >
-                <div className="text-sm">{msg.message}</div>
-                <div className="text-[10px] text-zinc-400 mt-1 text-right">
+                <div className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                  {msg.message}
+                </div>
+                <div
+                  className={`text-[10px] mt-1 ${
+                    isMe ? "text-indigo-200" : "text-zinc-500"
+                  }`}
+                >
                   {new Date(msg.created_at).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -383,13 +405,6 @@ export default function CustomerMessagesPage() {
                 </div>
               </div>
             </div>
-            {isMe && isFirstOfGroup && (
-              <div className="flex flex-col items-center ml-2">
-                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
-                  Me
-                </div>
-              </div>
-            )}
           </div>
         </div>
       );
