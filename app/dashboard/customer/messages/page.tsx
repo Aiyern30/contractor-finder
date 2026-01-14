@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -60,6 +61,12 @@ export default function CustomerMessagesPage() {
     messageId: string | null;
   }>({ open: false, messageId: null });
   const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
+  const [deleteConversationDialog, setDeleteConversationDialog] = useState<{
+    open: boolean;
+    jobId: string | null;
+    contractorId: string | null;
+    jobTitle: string | null;
+  }>({ open: false, jobId: null, contractorId: null, jobTitle: null });
 
   const fetchUserId = useCallback(async () => {
     const supabase = createClient();
@@ -328,6 +335,57 @@ export default function CustomerMessagesPage() {
     }
   };
 
+  const handleDeleteConversation = async (
+    deleteJobId: string,
+    deleteContractorId: string
+  ) => {
+    const supabase = createClient();
+    try {
+      // First, get all messages for this conversation
+      const { data: conversationMessages, error: fetchError } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("job_request_id", deleteJobId)
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${deleteContractorId}),and(sender_id.eq.${deleteContractorId},receiver_id.eq.${userId})`);
+
+      if (fetchError) {
+        console.error("Fetch error:", fetchError);
+        throw fetchError;
+      }
+
+      if (!conversationMessages || conversationMessages.length === 0) {
+        toast.info("No messages to delete");
+        return;
+      }
+
+      // Delete all messages in this conversation
+      const messageIds = conversationMessages.map((m) => m.id);
+
+      const { error: deleteError } = await supabase
+        .from("messages")
+        .delete()
+        .in("id", messageIds);
+
+      if (deleteError) {
+        console.error("Delete error:", deleteError);
+        throw deleteError;
+      }
+
+      toast.success("Conversation deleted");
+      fetchConversations();
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast.error("Failed to delete conversation");
+    } finally {
+      setDeleteConversationDialog({
+        open: false,
+        jobId: null,
+        contractorId: null,
+        jobTitle: null,
+      });
+    }
+  };
+
   // If no contractor/job param, show conversation list
   if (!contractorId || !jobId) {
     return (
@@ -369,51 +427,119 @@ export default function CustomerMessagesPage() {
               {conversations.map((conversation) => (
                 <div
                   key={conversation.id}
-                  className="p-4 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
-                  onClick={() =>
-                    router.push(
-                      `/dashboard/customer/messages?contractor=${conversation.contractor_id}&job=${conversation.job_id}`
-                    )
-                  }
+                  className="p-4 bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group rounded-xl"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/20 shrink-0">
-                      <span className="text-white font-bold text-lg">
-                        {conversation.contractor_name.charAt(0)}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h4 className="font-semibold text-white truncate">
-                          {conversation.contractor_name}
-                        </h4>
-                        <span className="text-xs text-zinc-500 whitespace-nowrap">
-                          {new Date(
-                            conversation.last_message_time
-                          ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                    <div
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/customer/messages?contractor=${conversation.contractor_id}&job=${conversation.job_id}`
+                        )
+                      }
+                      className="flex items-start gap-4 flex-1"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/20 shrink-0">
+                        <span className="text-white font-bold text-lg">
+                          {conversation.contractor_name.charAt(0)}
                         </span>
                       </div>
-                      <div className="text-xs text-purple-400 mb-1 truncate">
-                        Re: {conversation.job_title}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h4 className="font-semibold text-white truncate">
+                            {conversation.contractor_name}
+                          </h4>
+                          <span className="text-xs text-zinc-500 whitespace-nowrap">
+                            {new Date(
+                              conversation.last_message_time
+                            ).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <div className="text-xs text-purple-400 mb-1 truncate">
+                          Re: {conversation.job_title}
+                        </div>
+                        <p className="text-sm text-zinc-400 truncate">
+                          {conversation.last_message}
+                        </p>
                       </div>
-                      <p className="text-sm text-zinc-400 truncate">
-                        {conversation.last_message}
-                      </p>
+                      {conversation.unread_count > 0 && (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white shrink-0">
+                          {conversation.unread_count}
+                        </div>
+                      )}
                     </div>
-                    {conversation.unread_count > 0 && (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white shrink-0">
-                        {conversation.unread_count}
-                      </div>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConversationDialog({
+                          open: true,
+                          jobId: conversation.job_id,
+                          contractorId: conversation.contractor_id,
+                          jobTitle: conversation.job_title,
+                        });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+
+        {/* Delete Conversation Dialog */}
+        <AlertDialog
+          open={deleteConversationDialog.open}
+          onOpenChange={(open) =>
+            !open &&
+            setDeleteConversationDialog({
+              open: false,
+              jobId: null,
+              contractorId: null,
+              jobTitle: null,
+            })
+          }
+        >
+          <AlertDialogContent className="bg-zinc-900 border-white/10">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-white">
+                Delete Conversation?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-zinc-400">
+                Are you sure you want to delete this conversation about{" "}
+                <span className="font-semibold text-white">
+                  "{deleteConversationDialog.jobTitle}"
+                </span>
+                ? All messages will be permanently deleted and cannot be
+                recovered.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
+                  deleteConversationDialog.jobId &&
+                  deleteConversationDialog.contractorId &&
+                  handleDeleteConversation(
+                    deleteConversationDialog.jobId,
+                    deleteConversationDialog.contractorId
+                  )
+                }
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Delete Conversation
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
