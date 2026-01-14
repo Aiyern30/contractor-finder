@@ -10,6 +10,17 @@ import { UserNav } from "@/components/layout/user-nav";
 import { MessageSquare, Loader2, FileText } from "lucide-react";
 import Image from "next/image";
 
+interface Conversation {
+  id: string;
+  contractor_id: string;
+  contractor_name: string;
+  job_id: string;
+  job_title: string;
+  last_message: string;
+  last_message_time: string;
+  unread_count: number;
+}
+
 export default function CustomerMessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,6 +33,7 @@ export default function CustomerMessagesPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [projectDetails, setProjectDetails] = useState<any>(null);
   const [contractorName, setContractorName] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const fetchUserId = useCallback(async () => {
     const supabase = createClient();
@@ -78,14 +90,14 @@ export default function CustomerMessagesPage() {
   const fetchContractorName = useCallback(async () => {
     if (!contractorId) return;
     const supabase = createClient();
-    
+
     // First try to get contractor profile
     const { data: contractorData } = await supabase
       .from("contractor_profiles")
       .select("business_name, user_id")
       .eq("user_id", contractorId)
       .single();
-    
+
     if (contractorData?.business_name) {
       setContractorName(contractorData.business_name);
     } else {
@@ -99,9 +111,98 @@ export default function CustomerMessagesPage() {
     }
   }, [contractorId]);
 
+  const fetchConversations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setUserId(user.id);
+
+      // Fetch all messages where user is sender or receiver
+      const { data: messagesData } = await supabase
+        .from("messages")
+        .select(
+          `
+            *,
+            sender:sender_id(full_name),
+            receiver:receiver_id(full_name),
+            job_requests:job_request_id(id, title)
+          `
+        )
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order("created_at", { ascending: false });
+
+      // Group messages by conversation
+      const conversationMap = new Map<string, Conversation>();
+
+      for (const msg of messagesData || []) {
+        if (!msg.job_request_id) continue;
+
+        const otherId =
+          msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+        const conversationKey = `${msg.job_request_id}-${otherId}`;
+
+        if (!conversationMap.has(conversationKey)) {
+          // Get contractor name
+          const { data: contractorData } = await supabase
+            .from("contractor_profiles")
+            .select("business_name")
+            .eq("user_id", otherId)
+            .single();
+
+          const contractorName =
+            contractorData?.business_name ||
+            (msg.sender_id === user.id
+              ? msg.receiver?.full_name
+              : msg.sender?.full_name) ||
+            "Unknown";
+
+          // Count unread messages
+          const unreadCount =
+            messagesData?.filter(
+              (m) =>
+                m.job_request_id === msg.job_request_id &&
+                m.receiver_id === user.id &&
+                m.sender_id === otherId &&
+                !m.is_read
+            ).length || 0;
+
+          conversationMap.set(conversationKey, {
+            id: conversationKey,
+            contractor_id: otherId,
+            contractor_name: contractorName,
+            job_id: msg.job_request_id,
+            job_title: msg.job_requests?.title || "Untitled Job",
+            last_message: msg.message,
+            last_message_time: msg.created_at,
+            unread_count: unreadCount,
+          });
+        }
+      }
+
+      setConversations(Array.from(conversationMap.values()));
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
   useEffect(() => {
-    fetchUserId();
-  }, [fetchUserId]);
+    if (!contractorId || !jobId) {
+      fetchConversations();
+    } else {
+      fetchUserId();
+    }
+  }, [contractorId, jobId, fetchConversations, fetchUserId]);
 
   useEffect(() => {
     if (userId && contractorId && jobId) {
@@ -136,7 +237,7 @@ export default function CustomerMessagesPage() {
     }
   };
 
-  // If no contractor/job param, show empty state
+  // If no contractor/job param, show conversation list
   if (!contractorId || !jobId) {
     return (
       <div className="min-h-screen bg-[#0A0A0A]">
@@ -148,25 +249,79 @@ export default function CustomerMessagesPage() {
         </header>
 
         <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-          <div className="p-12 bg-white/5 border border-white/10 rounded-xl text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-500/10 mb-6">
-              <MessageSquare className="h-10 w-10 text-purple-400" />
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
             </div>
-            <h3 className="text-2xl font-bold text-white mb-3">
-              No Messages Yet
-            </h3>
-            <p className="text-zinc-400 mb-6 max-w-md mx-auto">
-              When you contact contractors about your jobs, your conversations
-              will appear here.
-            </p>
-            <Button
-              onClick={() => router.push("/dashboard/customer/jobs")}
-              className="bg-purple-500 hover:bg-purple-600 text-white"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              View My Jobs
-            </Button>
-          </div>
+          ) : conversations.length === 0 ? (
+            <div className="p-12 bg-white/5 border border-white/10 rounded-xl text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-500/10 mb-6">
+                <MessageSquare className="h-10 w-10 text-purple-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-3">
+                No Messages Yet
+              </h3>
+              <p className="text-zinc-400 mb-6 max-w-md mx-auto">
+                When you contact contractors about your jobs, your conversations
+                will appear here.
+              </p>
+              <Button
+                onClick={() => router.push("/dashboard/customer/jobs")}
+                className="bg-purple-500 hover:bg-purple-600 text-white"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                View My Jobs
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className="p-4 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
+                  onClick={() =>
+                    router.push(
+                      `/dashboard/customer/messages?contractor=${conversation.contractor_id}&job=${conversation.job_id}`
+                    )
+                  }
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/20 shrink-0">
+                      <span className="text-white font-bold text-lg">
+                        {conversation.contractor_name.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h4 className="font-semibold text-white truncate">
+                          {conversation.contractor_name}
+                        </h4>
+                        <span className="text-xs text-zinc-500 whitespace-nowrap">
+                          {new Date(
+                            conversation.last_message_time
+                          ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="text-xs text-purple-400 mb-1 truncate">
+                        Re: {conversation.job_title}
+                      </div>
+                      <p className="text-sm text-zinc-400 truncate">
+                        {conversation.last_message}
+                      </p>
+                    </div>
+                    {conversation.unread_count > 0 && (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white shrink-0">
+                        {conversation.unread_count}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
