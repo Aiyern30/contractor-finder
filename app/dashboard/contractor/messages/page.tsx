@@ -11,12 +11,24 @@ import { UserNav } from "@/components/layout/user-nav";
 import { MessageSquare, Loader2, FileText } from "lucide-react";
 import Image from "next/image";
 
+interface Conversation {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  job_id: string;
+  job_title: string;
+  last_message: string;
+  last_message_time: string;
+  unread_count: number;
+}
+
 export default function ContractorMessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const customerId = searchParams.get("customer");
   const jobId = searchParams.get("job");
 
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [messageText, setMessageText] = useState("");
@@ -88,6 +100,91 @@ export default function ContractorMessagesPage() {
     setCustomerName(data?.full_name || null);
   }, [customerId]);
 
+  const fetchConversations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      setUserId(user.id);
+
+      // Fetch all messages where user is sender or receiver
+      const { data: messagesData } = await supabase
+        .from("messages")
+        .select(
+          `
+            *,
+            sender:sender_id(full_name),
+            receiver:receiver_id(full_name),
+            job_requests:job_request_id(id, title, customer_id)
+          `
+        )
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+        .order("created_at", { ascending: false });
+
+      // Group messages by conversation (job + other person)
+      const conversationMap = new Map<string, Conversation>();
+
+      for (const msg of messagesData || []) {
+        if (!msg.job_request_id) continue;
+
+        const otherId =
+          msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+        const otherName =
+          msg.sender_id === user.id
+            ? msg.receiver?.full_name
+            : msg.sender?.full_name;
+
+        const conversationKey = `${msg.job_request_id}-${otherId}`;
+
+        if (!conversationMap.has(conversationKey)) {
+          // Count unread messages
+          const unreadCount = messagesData?.filter(
+            (m) =>
+              m.job_request_id === msg.job_request_id &&
+              m.receiver_id === user.id &&
+              m.sender_id === otherId &&
+              !m.is_read
+          ).length || 0;
+
+          conversationMap.set(conversationKey, {
+            id: conversationKey,
+            customer_id: otherId,
+            customer_name: otherName || "Unknown",
+            job_id: msg.job_request_id,
+            job_title: msg.job_requests?.title || "Untitled Job",
+            last_message: msg.message,
+            last_message_time: msg.created_at,
+            unread_count: unreadCount,
+          });
+        }
+      }
+
+      setConversations(Array.from(conversationMap.values()));
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!customerId || !jobId) {
+      // Show conversation list
+      fetchConversations();
+    } else {
+      // Show chat UI
+      fetchUserId();
+    }
+  }, [customerId, jobId, fetchConversations, fetchUserId]);
+
   useEffect(() => {
     fetchUserId();
   }, [fetchUserId]);
@@ -125,11 +222,10 @@ export default function ContractorMessagesPage() {
     }
   };
 
-  // If no customer/job param, show all conversations (existing code)
+  // If no customer/job param, show conversation list
   if (!customerId || !jobId) {
     return (
       <div className="min-h-screen bg-[#0A0A0A]">
-        {/* Header */}
         <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
           <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <h2 className="text-xl font-bold text-white">Messages</h2>
@@ -142,7 +238,7 @@ export default function ContractorMessagesPage() {
             <div className="flex items-center justify-center py-20">
               <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
             </div>
-          ) : (
+          ) : conversations.length === 0 ? (
             <Card className="p-12 bg-white/5 border-white/10 text-center">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-500/10 mb-6">
                 <MessageSquare className="h-10 w-10 text-purple-400" />
@@ -162,6 +258,54 @@ export default function ContractorMessagesPage() {
                 Browse Available Jobs
               </Button>
             </Card>
+          ) : (
+            <div className="space-y-2">
+              {conversations.map((conversation) => (
+                <Card
+                  key={conversation.id}
+                  className="p-4 bg-white/5 border-white/10 hover:bg-white/10 transition-all cursor-pointer"
+                  onClick={() =>
+                    router.push(
+                      `/dashboard/contractor/messages?customer=${conversation.customer_id}&job=${conversation.job_id}`
+                    )
+                  }
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/20 shrink-0">
+                      <span className="text-white font-bold text-lg">
+                        {conversation.customer_name.charAt(0)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h4 className="font-semibold text-white truncate">
+                          {conversation.customer_name}
+                        </h4>
+                        <span className="text-xs text-zinc-500 whitespace-nowrap">
+                          {new Date(
+                            conversation.last_message_time
+                          ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="text-xs text-purple-400 mb-1 truncate">
+                        Re: {conversation.job_title}
+                      </div>
+                      <p className="text-sm text-zinc-400 truncate">
+                        {conversation.last_message}
+                      </p>
+                    </div>
+                    {conversation.unread_count > 0 && (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white shrink-0">
+                        {conversation.unread_count}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       </div>
