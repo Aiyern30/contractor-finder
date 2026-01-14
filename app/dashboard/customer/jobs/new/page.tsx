@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface Category {
   id: string;
@@ -185,7 +184,7 @@ export default function NewJobPage() {
                   setFormData({ ...formData, description: e.target.value })
                 }
                 required
-                className="min-h-[150px] bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-indigo-500"
+                className="min-h-37.5 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-500 focus:border-indigo-500"
               />
             </div>
 
@@ -252,7 +251,7 @@ export default function NewJobPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white min-w-[120px]"
+                className="bg-indigo-500 hover:bg-indigo-600 text-white min-w-30"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
