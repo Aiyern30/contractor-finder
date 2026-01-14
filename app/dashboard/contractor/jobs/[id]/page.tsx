@@ -28,6 +28,7 @@ import {
   FileText,
   AlertCircle,
   Loader2,
+  CheckCircle,
 } from "lucide-react";
 import { JobRequest } from "@/types/database";
 
@@ -51,6 +52,14 @@ export default function ContractorJobDetailPage() {
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [contractorId, setContractorId] = useState<string>("");
+  const [existingQuote, setExistingQuote] = useState<{
+    id: string;
+    quoted_price: number;
+    estimated_duration: string | null;
+    message: string | null;
+    status: string;
+    created_at: string;
+  } | null>(null);
 
   const [quoteData, setQuoteData] = useState({
     quoted_price: "",
@@ -103,10 +112,39 @@ export default function ContractorJobDetailPage() {
     }
   }, [jobId]);
 
+  const fetchExistingQuote = useCallback(async () => {
+    if (!contractorId) return;
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("job_request_id", jobId)
+        .eq("contractor_id", contractorId)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching quote:", error);
+        return;
+      }
+
+      setExistingQuote(data);
+    } catch (error) {
+      console.error("Error fetching existing quote:", error);
+    }
+  }, [jobId, contractorId]);
+
   useEffect(() => {
     fetchJobDetails();
     fetchContractorId();
   }, [fetchJobDetails, fetchContractorId]);
+
+  useEffect(() => {
+    if (contractorId) {
+      fetchExistingQuote();
+    }
+  }, [contractorId, fetchExistingQuote]);
 
   const handleSubmitQuote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,20 +158,41 @@ export default function ContractorJobDetailPage() {
         return;
       }
 
-      const { error } = await supabase.from("quotes").insert({
-        job_request_id: jobId,
-        contractor_id: contractorId,
-        quoted_price: parseFloat(quoteData.quoted_price),
-        estimated_duration: quoteData.estimated_duration,
-        message: quoteData.message,
-        status: "pending",
-      });
+      // Check if quote already exists
+      if (existingQuote) {
+        // Update existing quote
+        const { error } = await supabase
+          .from("quotes")
+          .update({
+            quoted_price: parseFloat(quoteData.quoted_price),
+            estimated_duration: quoteData.estimated_duration,
+            message: quoteData.message,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingQuote.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success("Quote submitted successfully!", {
-        description: "The customer will be notified of your quote.",
-      });
+        toast.success("Quote updated successfully!", {
+          description: "The customer will be notified of your updated quote.",
+        });
+      } else {
+        // Create new quote
+        const { error } = await supabase.from("quotes").insert({
+          job_request_id: jobId,
+          contractor_id: contractorId,
+          quoted_price: parseFloat(quoteData.quoted_price),
+          estimated_duration: quoteData.estimated_duration,
+          message: quoteData.message,
+          status: "pending",
+        });
+
+        if (error) throw error;
+
+        toast.success("Quote submitted successfully!", {
+          description: "The customer will be notified of your quote.",
+        });
+      }
 
       setQuoteDialogOpen(false);
       setQuoteData({
@@ -141,13 +200,27 @@ export default function ContractorJobDetailPage() {
         estimated_duration: "",
         message: "",
       });
-      router.push("/dashboard/contractor/jobs");
+
+      // Refresh the quote
+      await fetchExistingQuote();
     } catch (error) {
       console.error("Error submitting quote:", error);
       toast.error("Failed to submit quote");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openQuoteDialog = () => {
+    // Pre-fill form if updating existing quote
+    if (existingQuote) {
+      setQuoteData({
+        quoted_price: existingQuote.quoted_price.toString(),
+        estimated_duration: existingQuote.estimated_duration || "",
+        message: existingQuote.message || "",
+      });
+    }
+    setQuoteDialogOpen(true);
   };
 
   const handleMessageCustomer = () => {
@@ -168,6 +241,21 @@ export default function ContractorJobDetailPage() {
         return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
       case "low":
         return "bg-green-500/10 text-green-400 border-green-500/20";
+      default:
+        return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
+    }
+  };
+
+  const getQuoteStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+      case "accepted":
+        return "bg-green-500/10 text-green-400 border-green-500/20";
+      case "rejected":
+        return "bg-red-500/10 text-red-400 border-red-500/20";
+      case "withdrawn":
+        return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
       default:
         return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
     }
@@ -218,6 +306,81 @@ export default function ContractorJobDetailPage() {
       </header>
 
       <div className="container mx-auto p-4 md:p-8 max-w-4xl">
+        {/* Existing Quote Card - Only visible to contractor who submitted */}
+        {existingQuote && (
+          <Card className="p-6 mb-6 rounded-xl border-2 border-indigo-700 bg-linear-to-br from-zinc-900 via-indigo-950 to-purple-950 shadow-lg">
+            <div className="flex items-start gap-3 mb-4">
+              <CheckCircle className="h-6 w-6 text-indigo-400 mt-1" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-indigo-200 mb-1">
+                  Your Quote
+                </h3>
+                <p className="text-sm text-zinc-400">
+                  You have already submitted a quote for this job
+                </p>
+              </div>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${getQuoteStatusColor(
+                  existingQuote.status
+                )} bg-zinc-900`}
+              >
+                {existingQuote.status.charAt(0).toUpperCase() +
+                  existingQuote.status.slice(1)}
+              </span>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-400" />
+                <div>
+                  <div className="text-xs text-zinc-400">Quoted Price</div>
+                  <div className="text-lg font-bold text-green-300">
+                    RM {existingQuote.quoted_price}
+                  </div>
+                </div>
+              </div>
+
+              {existingQuote.estimated_duration && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-purple-400" />
+                  <div>
+                    <div className="text-xs text-zinc-400">Duration</div>
+                    <div className="text-sm font-medium text-indigo-200">
+                      {existingQuote.estimated_duration}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {existingQuote.message && (
+              <div className="mb-4">
+                <div className="text-xs text-zinc-400 mb-1">Your Message</div>
+                <p className="text-sm text-indigo-200 italic">
+                  "{existingQuote.message}"
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+              <span className="text-xs text-zinc-500">
+                Submitted on{" "}
+                {new Date(existingQuote.created_at).toLocaleDateString()}
+              </span>
+              {existingQuote.status === "pending" && (
+                <Button
+                  onClick={openQuoteDialog}
+                  size="sm"
+                  variant="outline"
+                  className="border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
+                >
+                  Update Quote
+                </Button>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Main Job Card */}
         <Card className="p-6 md:p-8 bg-white/5 border-white/10 mb-6">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
@@ -311,12 +474,12 @@ export default function ContractorJobDetailPage() {
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/10">
             <Button
-              onClick={() => setQuoteDialogOpen(true)}
+              onClick={openQuoteDialog}
               className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white"
               size="lg"
             >
               <DollarSign className="h-5 w-5 mr-2" />
-              Submit Quote
+              {existingQuote ? "Update Quote" : "Submit Quote"}
             </Button>
             <Button
               onClick={handleMessageCustomer}
@@ -335,9 +498,13 @@ export default function ContractorJobDetailPage() {
       <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
         <DialogContent className="bg-zinc-900 border-white/10 text-white max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Submit Your Quote</DialogTitle>
+            <DialogTitle className="text-2xl">
+              {existingQuote ? "Update Your Quote" : "Submit Your Quote"}
+            </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Provide your pricing and timeline for this project
+              {existingQuote
+                ? "Modify your pricing and timeline for this project"
+                : "Provide your pricing and timeline for this project"}
             </DialogDescription>
           </DialogHeader>
 
@@ -388,7 +555,14 @@ export default function ContractorJobDetailPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setQuoteDialogOpen(false)}
+                onClick={() => {
+                  setQuoteDialogOpen(false);
+                  setQuoteData({
+                    quoted_price: "",
+                    estimated_duration: "",
+                    message: "",
+                  });
+                }}
                 className="flex-1 border-white/10 text-zinc-400 hover:text-white hover:bg-white/5"
               >
                 Cancel
@@ -400,6 +574,8 @@ export default function ContractorJobDetailPage() {
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : existingQuote ? (
+                  "Update Quote"
                 ) : (
                   "Submit Quote"
                 )}
