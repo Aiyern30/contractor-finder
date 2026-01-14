@@ -255,7 +255,7 @@ export default function ContractorMessagesPage() {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full max-w-4xl mx-auto flex flex-col m-4 md:m-8 bg-white/5 border border-white/10 rounded-xl">
+        <div className="h-full mx-auto flex flex-col m-0 md:m-0 bg-white/5 border-0 md:border border-white/10 rounded-none md:rounded-xl">
           {/* Project Details Section */}
           {projectDetails && (
             <div className="border-b border-white/10 bg-zinc-900/50 shrink-0">

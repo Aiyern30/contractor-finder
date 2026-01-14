@@ -4,7 +4,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserNav } from "@/components/layout/user-nav";
@@ -34,6 +33,7 @@ export default function CustomerMessagesPage() {
       return;
     }
     setUserId(user.id);
+    setLoading(false); // Set loading to false here
   }, [router]);
 
   const fetchProjectDetails = useCallback(async () => {
@@ -53,7 +53,7 @@ export default function CustomerMessagesPage() {
   }, [jobId]);
 
   const fetchMessages = useCallback(async () => {
-    setLoading(true);
+    if (!userId || !jobId) return;
     try {
       const supabase = createClient();
       const { data } = await supabase
@@ -72,20 +72,31 @@ export default function CustomerMessagesPage() {
       setMessages(data || []);
     } catch (error) {
       console.error("Error fetching messages:", error);
-    } finally {
-      setLoading(false);
     }
   }, [jobId, userId]);
 
   const fetchContractorName = useCallback(async () => {
     if (!contractorId) return;
     const supabase = createClient();
-    const { data } = await supabase
+    
+    // First try to get contractor profile
+    const { data: contractorData } = await supabase
       .from("contractor_profiles")
-      .select("business_name")
+      .select("business_name, user_id")
       .eq("user_id", contractorId)
       .single();
-    setContractorName(data?.business_name || null);
+    
+    if (contractorData?.business_name) {
+      setContractorName(contractorData.business_name);
+    } else {
+      // Fallback to profile full_name
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", contractorId)
+        .single();
+      setContractorName(profileData?.full_name || null);
+    }
   }, [contractorId]);
 
   useEffect(() => {
@@ -137,31 +148,25 @@ export default function CustomerMessagesPage() {
         </header>
 
         <div className="container mx-auto p-4 md:p-8 max-w-4xl">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+          <div className="p-12 bg-white/5 border border-white/10 rounded-xl text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-500/10 mb-6">
+              <MessageSquare className="h-10 w-10 text-purple-400" />
             </div>
-          ) : (
-            <Card className="p-12 bg-white/5 border-white/10 text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-purple-500/10 mb-6">
-                <MessageSquare className="h-10 w-10 text-purple-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-3">
-                No Messages Yet
-              </h3>
-              <p className="text-zinc-400 mb-6 max-w-md mx-auto">
-                When you contact contractors about your jobs, your conversations
-                will appear here.
-              </p>
-              <Button
-                onClick={() => router.push("/dashboard/customer/jobs")}
-                className="bg-purple-500 hover:bg-purple-600 text-white"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                View My Jobs
-              </Button>
-            </Card>
-          )}
+            <h3 className="text-2xl font-bold text-white mb-3">
+              No Messages Yet
+            </h3>
+            <p className="text-zinc-400 mb-6 max-w-md mx-auto">
+              When you contact contractors about your jobs, your conversations
+              will appear here.
+            </p>
+            <Button
+              onClick={() => router.push("/dashboard/customer/jobs")}
+              className="bg-purple-500 hover:bg-purple-600 text-white"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View My Jobs
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -256,7 +261,7 @@ export default function CustomerMessagesPage() {
 
       {/* Main Content - Scrollable */}
       <div className="flex-1 overflow-hidden">
-        <div className="h-full max-w-4xl mx-auto flex flex-col m-4 md:m-8 bg-white/5 border border-white/10 rounded-xl">
+        <div className="h-full mx-auto flex flex-col m-0 md:m-0 bg-white/5 border-0 md:border border-white/10 rounded-none md:rounded-xl">
           {/* Project Details Section */}
           {projectDetails && (
             <div className="border-b border-white/10 bg-zinc-900/50 shrink-0">
