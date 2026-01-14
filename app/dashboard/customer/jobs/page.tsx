@@ -8,29 +8,27 @@ import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/user-nav";
 import {
   Calendar,
-  Clock,
-  User,
-  MessageSquare,
   XCircle,
   Loader2,
   FileText,
   DollarSign,
   PlusCircle,
 } from "lucide-react";
-import { ReviewForm } from "@/components/reviews/review-form";
-import { Star as StarIcon } from "lucide-react";
 
 interface Job {
   id: string;
-  contractorId: string;
-  contractorName: string;
-  specialty: string;
-  status: "pending" | "accepted" | "in-progress" | "completed" | "cancelled";
-  date: string;
-  time: string;
+  customer_id: string;
+  category_id: string;
+  title: string;
   description: string;
-  createdAt: string;
-  estimatedCost?: number;
+  location: string;
+  budget_min: string;
+  budget_max: string;
+  preferred_date: string;
+  urgency: "low" | "medium" | "high";
+  status: "open" | "in-progress" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
 }
 
 export default function JobsPage() {
@@ -38,17 +36,6 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
-  const [reviewModal, setReviewModal] = useState<{
-    open: boolean;
-    bookingId: string | null;
-    contractorId: string | null;
-    contractorName: string | null;
-  }>({
-    open: false,
-    bookingId: null,
-    contractorId: null,
-    contractorName: null,
-  });
   const [currentUserId, setCurrentUserId] = useState<string>("");
 
   useEffect(() => {
@@ -66,10 +53,17 @@ export default function JobsPage() {
 
         setCurrentUserId(user.id);
 
-        const response = await fetch(`/api/bookings?customerId=${user.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setJobs(data);
+        // Fetch posted jobs from job_requests table
+        const { data, error } = await supabase
+          .from("job_requests")
+          .select("*")
+          .eq("customer_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching jobs:", error);
+        } else {
+          setJobs(data || []);
         }
       } catch (error) {
         console.error("Error fetching jobs:", error);
@@ -85,16 +79,14 @@ export default function JobsPage() {
     return jobs.filter((job) => {
       if (filter === "all") return true;
       if (filter === "active")
-        return ["pending", "accepted", "in-progress"].includes(job.status);
+        return ["open", "in-progress"].includes(job.status);
       return job.status === filter;
     });
   }, [jobs, filter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending":
-        return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
-      case "accepted":
+      case "open":
         return "bg-blue-500/10 text-blue-400 border-blue-500/20";
       case "in-progress":
         return "bg-purple-500/10 text-purple-400 border-purple-500/20";
@@ -108,43 +100,29 @@ export default function JobsPage() {
   };
 
   const cancelJob = async (jobId: string) => {
-    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    if (!confirm("Are you sure you want to cancel this job posting?")) return;
 
     try {
-      const response = await fetch(`/api/bookings/${jobId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "cancelled" }),
-      });
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("job_requests")
+        .update({ status: "cancelled" })
+        .eq("id", jobId);
 
-      if (response.ok) {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const refreshResponse = await fetch(
-            `/api/bookings?customerId=${user.id}`
-          );
-          if (refreshResponse.ok) {
-            const data = await refreshResponse.json();
-            setJobs(data);
-          }
-        }
+      if (error) {
+        alert("Failed to cancel job posting");
       } else {
-        alert("Failed to cancel booking");
+        // Refresh jobs list
+        const { data } = await supabase
+          .from("job_requests")
+          .select("*")
+          .eq("customer_id", currentUserId)
+          .order("created_at", { ascending: false });
+        setJobs(data || []);
       }
     } catch (error) {
       console.error("Error cancelling job:", error);
     }
-  };
-
-  const viewContractor = (contractorId: string) => {
-    router.push(`/dashboard/customer/contractors/${contractorId}`);
-  };
-
-  const messageContractor = (contractorId: string) => {
-    router.push(`/dashboard/customer/messages?contractor=${contractorId}`);
   };
 
   const filterOptions = [
@@ -152,14 +130,13 @@ export default function JobsPage() {
     {
       value: "active",
       label: "Active",
-      count: jobs.filter((j) =>
-        ["pending", "accepted", "in-progress"].includes(j.status)
-      ).length,
+      count: jobs.filter((j) => ["open", "in-progress"].includes(j.status))
+        .length,
     },
     {
-      value: "pending",
-      label: "Pending",
-      count: jobs.filter((j) => j.status === "pending").length,
+      value: "open",
+      label: "Open",
+      count: jobs.filter((j) => j.status === "open").length,
     },
     {
       value: "completed",
@@ -167,15 +144,6 @@ export default function JobsPage() {
       count: jobs.filter((j) => j.status === "completed").length,
     },
   ];
-
-  const openReviewModal = (job: Job) => {
-    setReviewModal({
-      open: true,
-      bookingId: job.id,
-      contractorId: job.contractorId,
-      contractorName: job.contractorName,
-    });
-  };
 
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
@@ -251,7 +219,7 @@ export default function JobsPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-xl font-semibold text-white">
-                        {job.contractorName}
+                        {job.title}
                       </h3>
                       <span
                         className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
@@ -261,18 +229,29 @@ export default function JobsPage() {
                         {job.status.charAt(0).toUpperCase() +
                           job.status.slice(1).replace("-", " ")}
                       </span>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          job.urgency === "high"
+                            ? "bg-red-500/10 text-red-400"
+                            : job.urgency === "medium"
+                            ? "bg-yellow-500/10 text-yellow-400"
+                            : "bg-green-500/10 text-green-400"
+                        }`}
+                      >
+                        {job.urgency} urgency
+                      </span>
                     </div>
-                    <p className="text-purple-400">{job.specialty}</p>
+                    <p className="text-purple-400">{job.location}</p>
                   </div>
-                  {job.estimatedCost && (
-                    <div className="text-right">
-                      <div className="flex items-center text-green-400 font-bold text-xl">
-                        <DollarSign className="h-5 w-5" />
-                        <span>RM {job.estimatedCost}</span>
-                      </div>
-                      <p className="text-sm text-zinc-500">Estimated</p>
+                  <div className="text-right">
+                    <div className="flex items-center text-green-400 font-bold text-xl">
+                      <DollarSign className="h-5 w-5" />
+                      <span>
+                        RM {job.budget_min} - {job.budget_max}
+                      </span>
                     </div>
-                  )}
+                    <p className="text-sm text-zinc-500">Budget</p>
+                  </div>
                 </div>
 
                 <div className="mb-4">
@@ -280,45 +259,28 @@ export default function JobsPage() {
                   <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-2 text-purple-400" />
-                      {new Date(job.date).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-purple-400" />
-                      {job.time}
+                      Preferred:{" "}
+                      {new Date(job.preferred_date).toLocaleDateString()}
                     </div>
                     <div className="flex items-center">
                       <FileText className="h-4 w-4 mr-2 text-purple-400" />
-                      Requested: {new Date(job.createdAt).toLocaleDateString()}
+                      Posted: {new Date(job.created_at).toLocaleDateString()}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex gap-3">
                   <Button
-                    onClick={() => viewContractor(job.contractorId)}
+                    onClick={() =>
+                      router.push(`/dashboard/customer/jobs/${job.id}`)
+                    }
                     variant="outline"
                     className="border-white/10 text-white hover:bg-white/5"
                   >
-                    <User className="h-4 w-4 mr-2" />
-                    View Contractor
+                    <FileText className="h-4 w-4 mr-2" />
+                    View Details
                   </Button>
-                  <Button
-                    onClick={() => messageContractor(job.contractorId)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Message
-                  </Button>
-                  {job.status === "completed" && (
-                    <Button
-                      onClick={() => openReviewModal(job)}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                    >
-                      <StarIcon className="h-4 w-4 mr-2" />
-                      Write Review
-                    </Button>
-                  )}
-                  {job.status === "pending" && (
+                  {job.status === "open" && (
                     <Button
                       onClick={() => cancelJob(job.id)}
                       variant="outline"
@@ -334,37 +296,6 @@ export default function JobsPage() {
           </div>
         )}
       </div>
-
-      {/* Review Modal */}
-      {reviewModal.open &&
-        reviewModal.contractorId &&
-        reviewModal.contractorName &&
-        currentUserId && (
-          <ReviewForm
-            isOpen={reviewModal.open}
-            onClose={() =>
-              setReviewModal({
-                open: false,
-                bookingId: null,
-                contractorId: null,
-                contractorName: null,
-              })
-            }
-            contractorId={reviewModal.contractorId}
-            contractorName={reviewModal.contractorName}
-            bookingId={reviewModal.bookingId || undefined}
-            customerId={currentUserId}
-            onReviewSubmitted={() => {
-              // Optionally refresh jobs list or show success message
-              setReviewModal({
-                open: false,
-                bookingId: null,
-                contractorId: null,
-                contractorName: null,
-              });
-            }}
-          />
-        )}
     </div>
   );
 }
