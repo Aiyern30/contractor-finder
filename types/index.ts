@@ -4,4 +4,5 @@ export interface Profile {
   full_name: string;
   avatar_url?: string;
   user_type: "customer" | "contractor" | "admin";
+  phone?: string;
 }
