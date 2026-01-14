@@ -22,30 +22,99 @@ export default function CustomerDashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalProjects: 0,
+    activeJobs: 0,
+    pendingQuotes: 0,
+    totalSpent: 0,
+  });
 
   useEffect(() => {
     let mounted = true;
 
-    async function loadProfile() {
+    async function loadData() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
 
       if (session?.user && mounted) {
-        const { data } = await supabase
+        // Load profile
+        const { data: profileData } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", session.user.id)
           .single();
 
+        if (profileData) {
+          setProfile(profileData);
+        }
+
+        // Load stats
+        // 1. Total Projects (from job_requests)
+        const { count: projectsCount } = await supabase
+          .from("job_requests")
+          .select("*", { count: "exact", head: true })
+          .eq("customer_id", session.user.id);
+
+        // 2. Pending Quotes (where status is pending for user's job requests)
+        // We first need job request IDs for this user
+        const { data: userJobs } = await supabase
+          .from("job_requests")
+          .select("id")
+          .eq("customer_id", session.user.id);
+
+        let quotesCount = 0;
+        if (userJobs && userJobs.length > 0) {
+          const jobIds = userJobs.map((j) => j.id);
+          const { count } = await supabase
+            .from("quotes")
+            .select("*", { count: "exact", head: true })
+            .in("job_request_id", jobIds)
+            .eq("status", "pending");
+          quotesCount = count || 0;
+        }
+
+        // 3. Active Jobs (from bookings where status is scheduled or in_progress)
+        const { count: activeCount } = await supabase
+          .from("bookings")
+          .select("*", { count: "exact", head: true })
+          .eq("customer_id", session.user.id)
+          .in("status", ["scheduled", "in_progress"]);
+
+        // 4. Total Spent (sum of quoted_price from completed bookings)
+        // We need to join bookings with quotes to get the price
+        const { data: completedBookings } = await supabase
+          .from("bookings")
+          .select(
+            `
+            id,
+            status,
+            quotes (
+              quoted_price
+            )
+          `
+          )
+          .eq("customer_id", session.user.id)
+          .eq("status", "completed");
+
+        const spent =
+          completedBookings?.reduce((sum, booking: any) => {
+            return sum + (booking.quotes?.quoted_price || 0);
+          }, 0) || 0;
+
         if (mounted) {
-          setProfile(data);
+          setStats({
+            totalProjects: projectsCount || 0,
+            activeJobs: activeCount || 0,
+            pendingQuotes: quotesCount,
+            totalSpent: spent,
+          });
           setLoading(false);
         }
       }
     }
 
-    loadProfile();
+    loadData();
 
     return () => {
       mounted = false;
@@ -118,15 +187,19 @@ export default function CustomerDashboardPage() {
               </p>
               <Briefcase className="h-4 w-4 text-indigo-400" />
             </div>
-            <div className="text-2xl font-bold text-white">12</div>
-            <p className="text-xs text-zinc-500 mt-1">+2 from last month</p>
+            <div className="text-2xl font-bold text-white">
+              {stats.totalProjects}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">All posted jobs</p>
           </Card>
           <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
             <div className="flex items-center justify-between space-y-0 pb-2">
               <p className="text-sm font-medium text-zinc-400">Active Jobs</p>
               <Activity className="h-4 w-4 text-purple-400" />
             </div>
-            <div className="text-2xl font-bold text-white">3</div>
+            <div className="text-2xl font-bold text-white">
+              {stats.activeJobs}
+            </div>
             <p className="text-xs text-zinc-500 mt-1">Currently in progress</p>
           </Card>
           <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
@@ -136,7 +209,9 @@ export default function CustomerDashboardPage() {
               </p>
               <Clock className="h-4 w-4 text-pink-400" />
             </div>
-            <div className="text-2xl font-bold text-white">5</div>
+            <div className="text-2xl font-bold text-white">
+              {stats.pendingQuotes}
+            </div>
             <p className="text-xs text-zinc-500 mt-1">Waiting for response</p>
           </Card>
           <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
@@ -144,8 +219,10 @@ export default function CustomerDashboardPage() {
               <p className="text-sm font-medium text-zinc-400">Total Spent</p>
               <DollarSign className="h-4 w-4 text-green-400" />
             </div>
-            <div className="text-2xl font-bold text-white">$2,450</div>
-            <p className="text-xs text-zinc-500 mt-1">+15% from last month</p>
+            <div className="text-2xl font-bold text-white">
+              ${stats.totalSpent.toLocaleString()}
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">Lifetime value</p>
           </Card>
         </div>
 
