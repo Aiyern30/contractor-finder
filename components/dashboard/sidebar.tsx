@@ -8,6 +8,8 @@ import {
   Users,
   FileText,
   BarChart3,
+  UserCircle,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -44,16 +46,28 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
       active: pathname === "/dashboard/customer",
     },
     {
-      label: "My Projects",
+      label: "My Jobs",
       icon: Briefcase,
-      href: "/dashboard/customer/projects",
-      active: pathname === "/dashboard/customer/projects",
+      href: "/dashboard/customer/jobs",
+      active: pathname?.startsWith("/dashboard/customer/jobs"),
+    },
+    {
+      label: "Find Contractors",
+      icon: Search,
+      href: "/dashboard/customer/contractors",
+      active: pathname?.startsWith("/dashboard/customer/contractors"),
     },
     {
       label: "Messages",
       icon: MessageSquare,
       href: "/dashboard/customer/messages",
-      active: pathname === "/dashboard/customer/messages",
+      active: pathname?.startsWith("/dashboard/customer/messages"),
+    },
+    {
+      label: "Profile",
+      icon: UserCircle,
+      href: "/dashboard/customer/profile",
+      active: pathname?.startsWith("/dashboard/customer/profile"),
     },
   ];
 
@@ -69,19 +83,25 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
       label: "Available Jobs",
       icon: FileText,
       href: "/dashboard/contractor/jobs",
-      active: pathname === "/dashboard/contractor/jobs",
+      active: pathname?.startsWith("/dashboard/contractor/jobs"),
     },
     {
       label: "My Projects",
       icon: Briefcase,
       href: "/dashboard/contractor/projects",
-      active: pathname === "/dashboard/contractor/projects",
+      active: pathname?.startsWith("/dashboard/contractor/projects"),
     },
     {
       label: "Messages",
       icon: MessageSquare,
       href: "/dashboard/contractor/messages",
-      active: pathname === "/dashboard/contractor/messages",
+      active: pathname?.startsWith("/dashboard/contractor/messages"),
+    },
+    {
+      label: "Profile",
+      icon: UserCircle,
+      href: "/dashboard/contractor/profile",
+      active: pathname?.startsWith("/dashboard/contractor/profile"),
     },
   ];
 
@@ -97,19 +117,19 @@ export function DashboardSidebar({ className, onItemClick }: SidebarProps) {
       label: "Users",
       icon: Users,
       href: "/dashboard/admin/users",
-      active: pathname === "/dashboard/admin/users",
+      active: pathname?.startsWith("/dashboard/admin/users"),
     },
     {
       label: "Projects",
       icon: Briefcase,
       href: "/dashboard/admin/projects",
-      active: pathname === "/dashboard/admin/projects",
+      active: pathname?.startsWith("/dashboard/admin/projects"),
     },
     {
       label: "Analytics",
       icon: BarChart3,
       href: "/dashboard/admin/analytics",
-      active: pathname === "/dashboard/admin/analytics",
+      active: pathname?.startsWith("/dashboard/admin/analytics"),
     },
   ];
 
