@@ -333,7 +333,9 @@ export default function ContractorMessagesPage() {
         .from("messages")
         .select("id")
         .eq("job_request_id", deleteJobId)
-        .or(`and(sender_id.eq.${userId},receiver_id.eq.${deleteCustomerId}),and(sender_id.eq.${deleteCustomerId},receiver_id.eq.${userId})`);
+        .or(
+          `and(sender_id.eq.${userId},receiver_id.eq.${deleteCustomerId}),and(sender_id.eq.${deleteCustomerId},receiver_id.eq.${userId})`
+        );
 
       if (fetchError) {
         console.error("Fetch error:", fetchError);
