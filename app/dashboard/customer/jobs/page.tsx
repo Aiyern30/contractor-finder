@@ -26,6 +26,7 @@ import {
   DollarSign,
   PlusCircle,
 } from "lucide-react";
+import { CreateJobDialog } from "@/components/customer/create-job-dialog";
 
 interface Job {
   id: string;
@@ -63,51 +64,55 @@ export default function JobsPage() {
     jobId: null,
     jobTitle: null,
   });
+  const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
 
-  const fetchJobs = useCallback(async (statusFilter: string) => {
-    try {
-      setLoading(true);
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const fetchJobs = useCallback(
+    async (statusFilter: string) => {
+      try {
+        setLoading(true);
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+        if (!user) {
+          router.push("/login");
+          return;
+        }
 
-      let query = supabase
-        .from("job_requests")
-        .select("*")
-        .eq("customer_id", user.id);
+        let query = supabase
+          .from("job_requests")
+          .select("*")
+          .eq("customer_id", user.id);
 
-      // Apply status filter
-      if (statusFilter === "active") {
-        query = query.in("status", ["open", "in-progress"]);
-      } else if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
+        // Apply status filter
+        if (statusFilter === "active") {
+          query = query.in("status", ["open", "in-progress"]);
+        } else if (statusFilter !== "all") {
+          query = query.eq("status", statusFilter);
+        }
 
-      const { data, error } = await query.order("created_at", {
-        ascending: false,
-      });
-
-      if (error) {
-        console.error("Error fetching jobs:", error);
-        toast.error("Failed to fetch jobs", {
-          description: error.message,
+        const { data, error } = await query.order("created_at", {
+          ascending: false,
         });
-      } else {
-        setJobs(data || []);
+
+        if (error) {
+          console.error("Error fetching jobs:", error);
+          toast.error("Failed to fetch jobs", {
+            description: error.message,
+          });
+        } else {
+          setJobs(data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching jobs:", error);
+        toast.error("An error occurred while fetching jobs");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching jobs:", error);
-      toast.error("An error occurred while fetching jobs");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
+    },
+    [router]
+  );
 
   const fetchFilterCounts = useCallback(async () => {
     try {
@@ -214,6 +219,12 @@ export default function JobsPage() {
     });
   };
 
+  const handleJobCreated = async () => {
+    // Refresh jobs list and counts after creating a new job
+    await fetchJobs(filter);
+    await fetchFilterCounts();
+  };
+
   const filterOptions = [
     { value: "all", label: "All", count: filterCounts.all },
     { value: "active", label: "Active", count: filterCounts.active },
@@ -229,7 +240,7 @@ export default function JobsPage() {
           <div className="flex items-center gap-2 md:gap-4">
             <h2 className="text-lg md:text-xl font-bold text-white">My Jobs</h2>
             <Button
-              onClick={() => router.push("/dashboard/customer/jobs/new")}
+              onClick={() => setCreateJobDialogOpen(true)}
               size="sm"
               className="bg-indigo-500 hover:bg-indigo-600 text-white"
             >
@@ -379,6 +390,13 @@ export default function JobsPage() {
           </div>
         )}
       </div>
+
+      {/* Create Job Dialog */}
+      <CreateJobDialog
+        open={createJobDialogOpen}
+        onOpenChange={setCreateJobDialogOpen}
+        onJobCreated={handleJobCreated}
+      />
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog
