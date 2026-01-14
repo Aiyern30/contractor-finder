@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSupabase } from "@/components/providers/supabase-provider";
+import { CustomerLayout } from "@/components/layout/customer-layout";
 import { Card } from "@/components/ui/card";
-import { UserNav } from "@/components/layout/user-nav";
+import { Button } from "@/components/ui/button";
 import { Profile } from "@/types";
 import {
   Activity,
@@ -17,7 +19,9 @@ import {
 
 export default function CustomerDashboardPage() {
   const { supabase } = useSupabase();
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -36,6 +40,7 @@ export default function CustomerDashboardPage() {
 
         if (mounted) {
           setProfile(data);
+          setLoading(false);
         }
       }
     }
@@ -47,31 +52,64 @@ export default function CustomerDashboardPage() {
     };
   }, [supabase]);
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Top Header */}
-      <header className="flex items-center justify-between border-b border-white/10 px-8 py-6 backdrop-blur-sm">
-        <div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-zinc-400">
-            Welcome back, {profile?.full_name?.split(" ")[0] || "User"}
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Find and hire the best contractors for your projects
-          </p>
-          <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-500/20 mt-2">
-            Homeowner Account
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <button className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-600 transition-colors">
-            <PlusCircle className="h-4 w-4" />
-            Post New Project
-          </button>
-          <UserNav />
-        </div>
-      </header>
+  // Calculate profile completion
+  const profileCompletion = profile
+    ? [profile.full_name, profile.phone, profile.avatar_url].filter(Boolean)
+        .length * 34 // Approx 33.3% each -> ~100%
+    : 0;
 
-      <div className="flex-1 p-8 space-y-8">
+  // Cap at 100
+  const completionPercentage = Math.min(Math.round(profileCompletion), 100);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-500" />
+      </div>
+    );
+  }
+
+  const displayName = profile?.full_name?.split(" ")[0] || "User";
+
+  return (
+    <CustomerLayout
+      title={`Welcome back, ${displayName}`}
+      description="Find and hire the best contractors for your projects"
+      badge={{ text: "Homeowner Account", variant: "blue" }}
+      actions={
+        <Button
+          onClick={() => router.push("/dashboard/customer/jobs/new")}
+          className="flex items-center gap-2 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-600 transition-colors"
+        >
+          <PlusCircle className="h-4 w-4" />
+          Post New Project
+        </Button>
+      }
+    >
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
+        {/* Profile Completion Alert */}
+        {completionPercentage < 100 && (
+          <Card className="p-6 bg-linear-to-r from-blue-500/10 to-indigo-500/10 border-blue-500/20">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-1">
+                  Complete Your Profile
+                </h3>
+                <p className="text-sm text-zinc-400">
+                  Your profile is {completionPercentage}% complete. Add your
+                  details to build trust with contractors!
+                </p>
+              </div>
+              <Button
+                onClick={() => router.push("/dashboard/customer/profile")}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                Complete Profile
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="p-6 bg-white/5 border-white/10 backdrop-blur-sm hover:bg-white/10 transition-colors">
@@ -197,6 +235,6 @@ export default function CustomerDashboardPage() {
           </Card>
         </div>
       </div>
-    </div>
+    </CustomerLayout>
   );
 }
