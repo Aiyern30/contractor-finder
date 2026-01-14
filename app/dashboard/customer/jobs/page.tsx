@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unescaped-entities */
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -48,7 +48,12 @@ export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [filterCounts, setFilterCounts] = useState({
+    all: 0,
+    active: 0,
+    open: 0,
+    completed: 0,
+  });
   const [cancelDialog, setCancelDialog] = useState<{
     open: boolean;
     jobId: string | null;
@@ -59,51 +64,106 @@ export default function JobsPage() {
     jobTitle: null,
   });
 
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  const fetchJobs = useCallback(async (statusFilter: string) => {
+    try {
+      setLoading(true);
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!user) {
-          router.push("/login");
-          return;
-        }
-
-        setCurrentUserId(user.id);
-
-        // Fetch posted jobs from job_requests table
-        const { data, error } = await supabase
-          .from("job_requests")
-          .select("*")
-          .eq("customer_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching jobs:", error);
-        } else {
-          setJobs(data || []);
-        }
-      } catch (error) {
-        console.error("Error fetching jobs:", error);
-      } finally {
-        setLoading(false);
+      if (!user) {
+        router.push("/login");
+        return;
       }
-    };
 
-    fetchJobs();
+      let query = supabase
+        .from("job_requests")
+        .select("*")
+        .eq("customer_id", user.id);
+
+      // Apply status filter
+      if (statusFilter === "active") {
+        query = query.in("status", ["open", "in-progress"]);
+      } else if (statusFilter !== "all") {
+        query = query.eq("status", statusFilter);
+      }
+
+      const { data, error } = await query.order("created_at", {
+        ascending: false,
+      });
+
+      if (error) {
+        console.error("Error fetching jobs:", error);
+        toast.error("Failed to fetch jobs", {
+          description: error.message,
+        });
+      } else {
+        setJobs(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching jobs:", error);
+      toast.error("An error occurred while fetching jobs");
+    } finally {
+      setLoading(false);
+    }
   }, [router]);
 
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      if (filter === "all") return true;
-      if (filter === "active")
-        return ["open", "in-progress"].includes(job.status);
-      return job.status === filter;
-    });
-  }, [jobs, filter]);
+  const fetchFilterCounts = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      // Fetch all jobs count
+      const { count: allCount } = await supabase
+        .from("job_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", user.id);
+
+      // Fetch active jobs count
+      const { count: activeCount } = await supabase
+        .from("job_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", user.id)
+        .in("status", ["open", "in-progress"]);
+
+      // Fetch open jobs count
+      const { count: openCount } = await supabase
+        .from("job_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", user.id)
+        .eq("status", "open");
+
+      // Fetch completed jobs count
+      const { count: completedCount } = await supabase
+        .from("job_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", user.id)
+        .eq("status", "completed");
+
+      setFilterCounts({
+        all: allCount || 0,
+        active: activeCount || 0,
+        open: openCount || 0,
+        completed: completedCount || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching filter counts:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJobs(filter);
+    fetchFilterCounts();
+  }, [filter, fetchJobs, fetchFilterCounts]);
+
+  const handleFilterChange = (newFilter: string) => {
+    setFilter(newFilter);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -134,13 +194,9 @@ export default function JobsPage() {
         });
       } else {
         toast.success("Job posting cancelled successfully");
-        // Refresh jobs list
-        const { data } = await supabase
-          .from("job_requests")
-          .select("*")
-          .eq("customer_id", currentUserId)
-          .order("created_at", { ascending: false });
-        setJobs(data || []);
+        // Refresh jobs list and counts
+        await fetchJobs(filter);
+        await fetchFilterCounts();
       }
     } catch (error) {
       console.error("Error cancelling job:", error);
@@ -159,23 +215,10 @@ export default function JobsPage() {
   };
 
   const filterOptions = [
-    { value: "all", label: "All", count: jobs.length },
-    {
-      value: "active",
-      label: "Active",
-      count: jobs.filter((j) => ["open", "in-progress"].includes(j.status))
-        .length,
-    },
-    {
-      value: "open",
-      label: "Open",
-      count: jobs.filter((j) => j.status === "open").length,
-    },
-    {
-      value: "completed",
-      label: "Completed",
-      count: jobs.filter((j) => j.status === "completed").length,
-    },
+    { value: "all", label: "All", count: filterCounts.all },
+    { value: "active", label: "Active", count: filterCounts.active },
+    { value: "open", label: "Open", count: filterCounts.open },
+    { value: "completed", label: "Completed", count: filterCounts.completed },
   ];
 
   return (
@@ -205,8 +248,9 @@ export default function JobsPage() {
             {filterOptions.map((option) => (
               <button
                 key={option.value}
-                onClick={() => setFilter(option.value)}
-                className={`px-3 md:px-4 py-2 rounded-lg text-sm md:text-base font-medium transition-all ${
+                onClick={() => handleFilterChange(option.value)}
+                disabled={loading}
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm md:text-base font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   filter === option.value
                     ? "bg-purple-500 text-white"
                     : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
@@ -223,7 +267,7 @@ export default function JobsPage() {
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
           </div>
-        ) : filteredJobs.length === 0 ? (
+        ) : jobs.length === 0 ? (
           <Card className="p-8 md:p-12 bg-white/5 border-white/10 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 mb-4">
               <FileText className="h-8 w-8 text-purple-400" />
@@ -243,7 +287,7 @@ export default function JobsPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredJobs.map((job) => (
+            {jobs.map((job) => (
               <Card
                 key={job.id}
                 className="p-4 md:p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
