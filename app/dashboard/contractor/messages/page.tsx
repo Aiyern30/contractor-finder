@@ -8,8 +8,26 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserNav } from "@/components/layout/user-nav";
-import { MessageSquare, Loader2, FileText } from "lucide-react";
+import {
+  MessageSquare,
+  Loader2,
+  FileText,
+  ArrowLeft,
+  Edit2,
+  Trash2,
+} from "lucide-react";
 import Image from "next/image";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface Conversation {
   id: string;
@@ -35,6 +53,14 @@ export default function ContractorMessagesPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [projectDetails, setProjectDetails] = useState<any>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editMessageText, setEditMessageText] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    messageId: string | null;
+  }>({ open: false, messageId: null });
+  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
   const fetchUserId = useCallback(async () => {
     const supabase = createClient();
@@ -176,6 +202,27 @@ export default function ContractorMessagesPage() {
     }
   }, [router]);
 
+  const fetchUserAvatars = useCallback(async () => {
+    if (!customerId || !userId) return;
+    const supabase = createClient();
+
+    // Fetch both user profiles
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, avatar_url")
+      .in("id", [customerId, userId]);
+
+    if (profiles) {
+      const avatarMap: Record<string, string> = {};
+      profiles.forEach((profile) => {
+        if (profile.avatar_url) {
+          avatarMap[profile.id] = profile.avatar_url;
+        }
+      });
+      setUserAvatars(avatarMap);
+    }
+  }, [customerId, userId]);
+
   useEffect(() => {
     if (!customerId || !jobId) {
       // Show conversation list
@@ -195,6 +242,7 @@ export default function ContractorMessagesPage() {
       fetchProjectDetails();
       fetchMessages();
       fetchCustomerName();
+      fetchUserAvatars();
     }
   }, [
     userId,
@@ -203,6 +251,7 @@ export default function ContractorMessagesPage() {
     fetchProjectDetails,
     fetchMessages,
     fetchCustomerName,
+    fetchUserAvatars,
   ]);
 
   const handleSendMessage = async () => {
@@ -220,6 +269,49 @@ export default function ContractorMessagesPage() {
       fetchMessages();
     } catch (error) {
       console.error("Error sending message:", error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    const supabase = createClient();
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("sender_id", userId);
+
+      if (error) throw error;
+
+      toast.success("Message deleted");
+      fetchMessages();
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      toast.error("Failed to delete message");
+    } finally {
+      setDeleteDialog({ open: false, messageId: null });
+    }
+  };
+
+  const handleEditMessage = async (messageId: string) => {
+    if (!editMessageText.trim()) return;
+    const supabase = createClient();
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .update({ message: editMessageText })
+        .eq("id", messageId)
+        .eq("sender_id", userId);
+
+      if (error) throw error;
+
+      toast.success("Message updated");
+      setEditingMessageId(null);
+      setEditMessageText("");
+      fetchMessages();
+    } catch (error) {
+      console.error("Error updating message:", error);
+      toast.error("Failed to update message");
     }
   };
 
@@ -320,19 +412,29 @@ export default function ContractorMessagesPage() {
       const isFirstOfGroup = msg.sender_id !== lastSenderId;
       lastSenderId = msg.sender_id;
       const isMe = msg.sender_id === userId;
+      const isEditing = editingMessageId === msg.id;
+
       return (
         <div
           key={msg.id}
-          className={`flex ${isMe ? "justify-end" : "justify-start"} w-full mb-2`}
+          className={`flex ${
+            isMe ? "justify-end" : "justify-start"
+          } w-full mb-2`}
+          onMouseEnter={() => isMe && setHoveredMessageId(msg.id)}
+          onMouseLeave={() => setHoveredMessageId(null)}
         >
-          <div className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"} max-w-[85%] sm:max-w-[75%] md:max-w-[70%]`}>
+          <div
+            className={`flex items-end gap-2 ${
+              isMe ? "flex-row-reverse" : "flex-row"
+            } max-w-[85%] sm:max-w-[75%] md:max-w-[70%]`}
+          >
             {isFirstOfGroup && (
               <div className="flex flex-col items-center shrink-0">
                 {!isMe ? (
-                  msg.sender?.avatar_url ? (
+                  msg.sender_id && userAvatars[msg.sender_id] ? (
                     <Image
-                      src={msg.sender.avatar_url}
-                      alt={msg.sender.full_name || "Avatar"}
+                      src={userAvatars[msg.sender_id]}
+                      alt={msg.sender?.full_name || "Avatar"}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full object-cover"
@@ -342,6 +444,14 @@ export default function ContractorMessagesPage() {
                       {msg.sender?.full_name?.charAt(0) || "?"}
                     </div>
                   )
+                ) : userId && userAvatars[userId] ? (
+                  <Image
+                    src={userAvatars[userId]}
+                    alt="You"
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
                     You
@@ -350,33 +460,99 @@ export default function ContractorMessagesPage() {
               </div>
             )}
             {!isFirstOfGroup && <div className="w-8 shrink-0" />}
-            
-            <div className="flex flex-col min-w-0">
+
+            <div className="flex flex-col min-w-0 flex-1">
               {isFirstOfGroup && (
                 <div
                   className={`text-xs mb-1 font-semibold px-1 ${
-                    isMe ? "text-indigo-300 text-right" : "text-zinc-300 text-left"
+                    isMe
+                      ? "text-indigo-300 text-right"
+                      : "text-zinc-300 text-left"
                   }`}
                 >
                   {isMe ? "You" : msg.sender?.full_name}
                 </div>
               )}
-              <div
-                className={`rounded-2xl px-4 py-2 break-words ${
-                  isMe
-                    ? "bg-indigo-500 text-white rounded-br-md"
-                    : "bg-zinc-800 text-zinc-200 rounded-bl-md"
-                }`}
-              >
-                <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                  {msg.message}
+              <div className="relative flex items-start gap-2">
+                <div
+                  className={`rounded-2xl px-4 py-2 break-words flex-1 ${
+                    isMe
+                      ? "bg-indigo-500 text-white rounded-br-md"
+                      : "bg-zinc-800 text-zinc-200 rounded-bl-md"
+                  }`}
+                >
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <Input
+                        value={editMessageText}
+                        onChange={(e) => setEditMessageText(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white text-sm"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleEditMessage(msg.id)}
+                          className="h-6 text-xs bg-green-500 hover:bg-green-600"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setEditingMessageId(null);
+                            setEditMessageText("");
+                          }}
+                          variant="outline"
+                          className="h-6 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                        {msg.message}
+                      </div>
+                      <div
+                        className={`text-[10px] mt-1 ${
+                          isMe ? "text-indigo-200" : "text-zinc-500"
+                        }`}
+                      >
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className={`text-[10px] mt-1 ${isMe ? "text-indigo-200" : "text-zinc-500"}`}>
-                  {new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
+                {isMe && hoveredMessageId === msg.id && !isEditing && (
+                  <div className="flex gap-1 bg-zinc-800 rounded-lg p-1 shadow-lg shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 hover:bg-white/10"
+                      onClick={() => {
+                        setEditingMessageId(msg.id);
+                        setEditMessageText(msg.message);
+                      }}
+                    >
+                      <Edit2 className="h-3 w-3 text-blue-400" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 hover:bg-white/10"
+                      onClick={() =>
+                        setDeleteDialog({ open: true, messageId: msg.id })
+                      }
+                    >
+                      <Trash2 className="h-3 w-3 text-red-400" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -392,6 +568,14 @@ export default function ContractorMessagesPage() {
       <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl z-50 shrink-0">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <Button
+              onClick={() => router.push("/dashboard/contractor/messages")}
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
             <h2 className="text-xl font-bold text-white">Messages</h2>
             {customerName && (
               <span className="text-sm text-zinc-400">with {customerName}</span>
@@ -531,6 +715,40 @@ export default function ContractorMessagesPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) =>
+          !open && setDeleteDialog({ open: false, messageId: null })
+        }
+      >
+        <AlertDialogContent className="bg-zinc-900 border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              Delete Message?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Are you sure you want to delete this message? This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deleteDialog.messageId &&
+                handleDeleteMessage(deleteDialog.messageId)
+              }
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

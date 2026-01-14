@@ -7,8 +7,26 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserNav } from "@/components/layout/user-nav";
-import { MessageSquare, Loader2, FileText } from "lucide-react";
+import {
+  MessageSquare,
+  Loader2,
+  FileText,
+  ArrowLeft,
+  Edit2,
+  Trash2,
+} from "lucide-react";
 import Image from "next/image";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface Conversation {
   id: string;
@@ -34,6 +52,14 @@ export default function CustomerMessagesPage() {
   const [projectDetails, setProjectDetails] = useState<any>(null);
   const [contractorName, setContractorName] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editMessageText, setEditMessageText] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    messageId: string | null;
+  }>({ open: false, messageId: null });
+  const [userAvatars, setUserAvatars] = useState<Record<string, string>>({});
 
   const fetchUserId = useCallback(async () => {
     const supabase = createClient();
@@ -196,6 +222,26 @@ export default function CustomerMessagesPage() {
     }
   }, [router]);
 
+  const fetchUserAvatars = useCallback(async () => {
+    if (!contractorId || !userId) return;
+    const supabase = createClient();
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, avatar_url")
+      .in("id", [contractorId, userId]);
+
+    if (profiles) {
+      const avatarMap: Record<string, string> = {};
+      profiles.forEach((profile) => {
+        if (profile.avatar_url) {
+          avatarMap[profile.id] = profile.avatar_url;
+        }
+      });
+      setUserAvatars(avatarMap);
+    }
+  }, [contractorId, userId]);
+
   useEffect(() => {
     if (!contractorId || !jobId) {
       fetchConversations();
@@ -209,6 +255,7 @@ export default function CustomerMessagesPage() {
       fetchProjectDetails();
       fetchMessages();
       fetchContractorName();
+      fetchUserAvatars();
     }
   }, [
     userId,
@@ -217,6 +264,7 @@ export default function CustomerMessagesPage() {
     fetchProjectDetails,
     fetchMessages,
     fetchContractorName,
+    fetchUserAvatars,
   ]);
 
   const handleSendMessage = async () => {
@@ -234,6 +282,49 @@ export default function CustomerMessagesPage() {
       fetchMessages();
     } catch (error) {
       console.error("Error sending message:", error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    const supabase = createClient();
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("sender_id", userId);
+
+      if (error) throw error;
+
+      toast.success("Message deleted");
+      fetchMessages();
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      toast.error("Failed to delete message");
+    } finally {
+      setDeleteDialog({ open: false, messageId: null });
+    }
+  };
+
+  const handleEditMessage = async (messageId: string) => {
+    if (!editMessageText.trim()) return;
+    const supabase = createClient();
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .update({ message: editMessageText })
+        .eq("id", messageId)
+        .eq("sender_id", userId);
+
+      if (error) throw error;
+
+      toast.success("Message updated");
+      setEditingMessageId(null);
+      setEditMessageText("");
+      fetchMessages();
+    } catch (error) {
+      console.error("Error updating message:", error);
+      toast.error("Failed to update message");
     }
   };
 
@@ -334,12 +425,16 @@ export default function CustomerMessagesPage() {
       const isFirstOfGroup = msg.sender_id !== lastSenderId;
       lastSenderId = msg.sender_id;
       const isMe = msg.sender_id === userId;
+      const isEditing = editingMessageId === msg.id;
+
       return (
         <div
           key={msg.id}
           className={`flex ${
             isMe ? "justify-end" : "justify-start"
           } w-full mb-2`}
+          onMouseEnter={() => isMe && setHoveredMessageId(msg.id)}
+          onMouseLeave={() => setHoveredMessageId(null)}
         >
           <div
             className={`flex items-end gap-2 ${
@@ -349,10 +444,10 @@ export default function CustomerMessagesPage() {
             {isFirstOfGroup && (
               <div className="flex flex-col items-center shrink-0">
                 {!isMe ? (
-                  msg.sender?.avatar_url ? (
+                  msg.sender_id && userAvatars[msg.sender_id] ? (
                     <Image
-                      src={msg.sender.avatar_url}
-                      alt={msg.sender.full_name || "Avatar"}
+                      src={userAvatars[msg.sender_id]}
+                      alt={msg.sender?.full_name || "Avatar"}
                       width={32}
                       height={32}
                       className="w-8 h-8 rounded-full object-cover"
@@ -362,6 +457,14 @@ export default function CustomerMessagesPage() {
                       {msg.sender?.full_name?.charAt(0) || "?"}
                     </div>
                   )
+                ) : userId && userAvatars[userId] ? (
+                  <Image
+                    src={userAvatars[userId]}
+                    alt="Me"
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
                     Me
@@ -371,7 +474,7 @@ export default function CustomerMessagesPage() {
             )}
             {!isFirstOfGroup && <div className="w-8 shrink-0" />}
 
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 flex-1">
               {isFirstOfGroup && (
                 <div
                   className={`text-xs mb-1 font-semibold px-1 ${
@@ -384,25 +487,89 @@ export default function CustomerMessagesPage() {
                 </div>
               )}
               <div
-                className={`rounded-2xl px-4 py-2 wrap-break-word ${
-                  isMe
-                    ? "bg-indigo-500 text-white rounded-br-md"
-                    : "bg-zinc-800 text-zinc-200 rounded-bl-md"
-                }`}
+                className={`relative flex items-start ${
+                  isMe ? "flex-row-reverse" : "flex-row"
+                } gap-2`}
               >
-                <div className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
-                  {msg.message}
-                </div>
                 <div
-                  className={`text-[10px] mt-1 ${
-                    isMe ? "text-indigo-200" : "text-zinc-500"
+                  className={`rounded-2xl px-4 py-2 wrap-break-word ${
+                    isMe
+                      ? "bg-indigo-500 text-white rounded-br-md"
+                      : "bg-zinc-800 text-zinc-200 rounded-bl-md"
                   }`}
                 >
-                  {new Date(msg.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <Input
+                        value={editMessageText}
+                        onChange={(e) => setEditMessageText(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white text-sm"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleEditMessage(msg.id)}
+                          className="h-6 text-xs bg-green-500 hover:bg-green-600"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setEditingMessageId(null);
+                            setEditMessageText("");
+                          }}
+                          variant="outline"
+                          className="h-6 text-xs"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                        {msg.message}
+                      </div>
+                      <div
+                        className={`text-[10px] mt-1 ${
+                          isMe ? "text-indigo-200" : "text-zinc-500"
+                        }`}
+                      >
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
+                {isMe && hoveredMessageId === msg.id && !isEditing && (
+                  <div className="flex gap-1 bg-zinc-800 rounded-lg p-1 shadow-lg shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 hover:bg-white/10"
+                      onClick={() => {
+                        setEditingMessageId(msg.id);
+                        setEditMessageText(msg.message);
+                      }}
+                    >
+                      <Edit2 className="h-3 w-3 text-blue-400" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 hover:bg-white/10"
+                      onClick={() =>
+                        setDeleteDialog({ open: true, messageId: msg.id })
+                      }
+                    >
+                      <Trash2 className="h-3 w-3 text-red-400" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -418,6 +585,14 @@ export default function CustomerMessagesPage() {
       <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl z-50 shrink-0">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <Button
+              onClick={() => router.push("/dashboard/customer/messages")}
+              variant="ghost"
+              size="sm"
+              className="text-zinc-400 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
             <h2 className="text-xl font-bold text-white">Messages</h2>
             {contractorName && (
               <span className="text-sm text-zinc-400">
@@ -561,6 +736,40 @@ export default function CustomerMessagesPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) =>
+          !open && setDeleteDialog({ open: false, messageId: null })
+        }
+      >
+        <AlertDialogContent className="bg-zinc-900 border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              Delete Message?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Are you sure you want to delete this message? This action cannot
+              be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                deleteDialog.messageId &&
+                handleDeleteMessage(deleteDialog.messageId)
+              }
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
