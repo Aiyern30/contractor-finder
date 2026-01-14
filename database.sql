@@ -120,7 +120,7 @@ CREATE TABLE public.profiles (
   full_name text NOT NULL,
   phone text,
   avatar_url text,
-  user_type text NOT NULL CHECK (user_type = ANY (ARRAY['customer'::text, 'contractor'::text, 'admin'::text])),
+  user_type text NOT NULL CHECK (user_type = ANY (ARRAY['customer'::text, 'homeowner'::text, 'contractor'::text, 'admin'::text])),
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
@@ -142,7 +142,7 @@ CREATE TABLE public.quotes (
 );
 CREATE TABLE public.reviews (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  booking_id uuid NOT NULL UNIQUE,
+  booking_id uuid,
   contractor_id uuid NOT NULL,
   customer_id uuid NOT NULL,
   rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
