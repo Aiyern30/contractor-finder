@@ -11,10 +11,10 @@ import { UserNav } from "@/components/layout/user-nav";
 import { MessageSquare, Loader2, FileText } from "lucide-react";
 import Image from "next/image";
 
-export default function ContractorMessagesPage() {
+export default function CustomerMessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const customerId = searchParams.get("customer");
+  const contractorId = searchParams.get("contractor");
   const jobId = searchParams.get("job");
 
   const [messages, setMessages] = useState<any[]>([]);
@@ -22,7 +22,7 @@ export default function ContractorMessagesPage() {
   const [messageText, setMessageText] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [projectDetails, setProjectDetails] = useState<any>(null);
-  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [contractorName, setContractorName] = useState<string | null>(null);
 
   const fetchUserId = useCallback(async () => {
     const supabase = createClient();
@@ -77,44 +77,44 @@ export default function ContractorMessagesPage() {
     }
   }, [jobId, userId]);
 
-  const fetchCustomerName = useCallback(async () => {
-    if (!customerId) return;
+  const fetchContractorName = useCallback(async () => {
+    if (!contractorId) return;
     const supabase = createClient();
     const { data } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", customerId)
+      .from("contractor_profiles")
+      .select("business_name")
+      .eq("user_id", contractorId)
       .single();
-    setCustomerName(data?.full_name || null);
-  }, [customerId]);
+    setContractorName(data?.business_name || null);
+  }, [contractorId]);
 
   useEffect(() => {
     fetchUserId();
   }, [fetchUserId]);
 
   useEffect(() => {
-    if (userId && customerId && jobId) {
+    if (userId && contractorId && jobId) {
       fetchProjectDetails();
       fetchMessages();
-      fetchCustomerName();
+      fetchContractorName();
     }
   }, [
     userId,
-    customerId,
+    contractorId,
     jobId,
     fetchProjectDetails,
     fetchMessages,
-    fetchCustomerName,
+    fetchContractorName,
   ]);
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !userId || !customerId || !jobId) return;
+    if (!messageText.trim() || !userId || !contractorId || !jobId) return;
     const supabase = createClient();
     try {
       const { error } = await supabase.from("messages").insert({
         job_request_id: jobId,
         sender_id: userId,
-        receiver_id: customerId,
+        receiver_id: contractorId,
         message: messageText,
       });
       if (error) throw error;
@@ -125,11 +125,10 @@ export default function ContractorMessagesPage() {
     }
   };
 
-  // If no customer/job param, show all conversations (existing code)
-  if (!customerId || !jobId) {
+  // If no contractor/job param, show empty state
+  if (!contractorId || !jobId) {
     return (
       <div className="min-h-screen bg-[#0A0A0A]">
-        {/* Header */}
         <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
           <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <h2 className="text-xl font-bold text-white">Messages</h2>
@@ -151,15 +150,15 @@ export default function ContractorMessagesPage() {
                 No Messages Yet
               </h3>
               <p className="text-zinc-400 mb-6 max-w-md mx-auto">
-                Start a conversation by messaging customers about their job
-                postings. Browse available jobs to get started.
+                When you contact contractors about your jobs, your conversations
+                will appear here.
               </p>
               <Button
-                onClick={() => router.push("/dashboard/contractor/jobs")}
+                onClick={() => router.push("/dashboard/customer/jobs")}
                 className="bg-purple-500 hover:bg-purple-600 text-white"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Browse Available Jobs
+                View My Jobs
               </Button>
             </Card>
           )}
@@ -192,7 +191,7 @@ export default function ContractorMessagesPage() {
                     className="w-8 h-8 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">
+                  <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-xs">
                     {msg.sender?.full_name?.charAt(0) || "?"}
                   </div>
                 )}
@@ -226,8 +225,8 @@ export default function ContractorMessagesPage() {
             </div>
             {isMe && isFirstOfGroup && (
               <div className="flex flex-col items-center ml-2">
-                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
-                  You
+                <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">
+                  Me
                 </div>
               </div>
             )}
@@ -237,7 +236,7 @@ export default function ContractorMessagesPage() {
     });
   }
 
-  // Chat UI for specific customer/job
+  // Chat UI for specific contractor/job
   return (
     <div className="h-screen flex flex-col bg-[#0A0A0A]">
       {/* Fixed Header */}
@@ -245,8 +244,10 @@ export default function ContractorMessagesPage() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-white">Messages</h2>
-            {customerName && (
-              <span className="text-sm text-zinc-400">with {customerName}</span>
+            {contractorName && (
+              <span className="text-sm text-zinc-400">
+                with {contractorName}
+              </span>
             )}
           </div>
           <UserNav />
@@ -321,8 +322,10 @@ export default function ContractorMessagesPage() {
                     </p>
                   </div>
                   <div className="bg-zinc-800/50 p-2 rounded-lg">
-                    <p className="text-zinc-500 mb-1">Customer</p>
-                    <p className="text-white">{customerName || "Loading..."}</p>
+                    <p className="text-zinc-500 mb-1">Contractor</p>
+                    <p className="text-white">
+                      {contractorName || "Loading..."}
+                    </p>
                   </div>
                 </div>
 
