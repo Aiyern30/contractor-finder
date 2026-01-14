@@ -15,6 +15,7 @@ import {
   Loader2,
   FileText,
   DollarSign,
+  PlusCircle,
 } from "lucide-react";
 import { ReviewForm } from "@/components/reviews/review-form";
 import { Star as StarIcon } from "lucide-react";
@@ -181,12 +182,22 @@ export default function JobsPage() {
       {/* Header */}
       <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">My Jobs</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold text-white">My Jobs</h2>
+            <Button
+              onClick={() => router.push("/dashboard/customer/jobs/new")}
+              size="sm"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Post New Project
+            </Button>
+          </div>
           <UserNav />
         </div>
       </header>
 
-      <div className="container mx-auto p-6 max-w-6xl">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         {/* Filter Tabs */}
         <Card className="p-4 bg-white/5 border-white/10 mb-6">
           <div className="flex gap-2 flex-wrap">
