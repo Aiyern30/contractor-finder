@@ -124,6 +124,16 @@ export interface JobRequest {
   updated_at: string;
 }
 
+export interface Message {
+  id: string;
+  job_request_id: string | null;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 // Joined query types
 export interface ContractorWithDetails extends ContractorProfile {
   profiles: Profile; // Changed from array to single object
