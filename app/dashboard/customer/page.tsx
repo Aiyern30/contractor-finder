@@ -54,8 +54,7 @@ export default function CustomerDashboardPage() {
 
   // Calculate profile completion
   const profileCompletion = profile
-    ? [profile.full_name, profile.phone, profile.avatar_url].filter(Boolean)
-        .length * 34 // Approx 33.3% each -> ~100%
+    ? [profile.full_name, profile.phone].filter(Boolean).length * 50
     : 0;
 
   // Cap at 100
