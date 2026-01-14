@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -6,6 +7,17 @@ import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { UserNav } from "@/components/layout/user-nav";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import {
   Calendar,
   XCircle,
@@ -37,6 +49,15 @@ export default function JobsPage() {
   const [filter, setFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [cancelDialog, setCancelDialog] = useState<{
+    open: boolean;
+    jobId: string | null;
+    jobTitle: string | null;
+  }>({
+    open: false,
+    jobId: null,
+    jobTitle: null,
+  });
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -100,8 +121,6 @@ export default function JobsPage() {
   };
 
   const cancelJob = async (jobId: string) => {
-    if (!confirm("Are you sure you want to cancel this job posting?")) return;
-
     try {
       const supabase = createClient();
       const { error } = await supabase
@@ -110,8 +129,11 @@ export default function JobsPage() {
         .eq("id", jobId);
 
       if (error) {
-        alert("Failed to cancel job posting");
+        toast.error("Failed to cancel job posting", {
+          description: error.message,
+        });
       } else {
+        toast.success("Job posting cancelled successfully");
         // Refresh jobs list
         const { data } = await supabase
           .from("job_requests")
@@ -122,7 +144,18 @@ export default function JobsPage() {
       }
     } catch (error) {
       console.error("Error cancelling job:", error);
+      toast.error("An error occurred while cancelling the job");
+    } finally {
+      setCancelDialog({ open: false, jobId: null, jobTitle: null });
     }
+  };
+
+  const openCancelDialog = (job: Job) => {
+    setCancelDialog({
+      open: true,
+      jobId: job.id,
+      jobTitle: job.title,
+    });
   };
 
   const filterOptions = [
@@ -150,15 +183,15 @@ export default function JobsPage() {
       {/* Header */}
       <header className="border-b border-white/10 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-white">My Jobs</h2>
+          <div className="flex items-center gap-2 md:gap-4">
+            <h2 className="text-lg md:text-xl font-bold text-white">My Jobs</h2>
             <Button
               onClick={() => router.push("/dashboard/customer/jobs/new")}
               size="sm"
               className="bg-indigo-500 hover:bg-indigo-600 text-white"
             >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Post New Project
+              <PlusCircle className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Post New Project</span>
             </Button>
           </div>
           <UserNav />
@@ -167,13 +200,13 @@ export default function JobsPage() {
 
       <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         {/* Filter Tabs */}
-        <Card className="p-4 bg-white/5 border-white/10 mb-6">
+        <Card className="p-3 md:p-4 bg-white/5 border-white/10 mb-6">
           <div className="flex gap-2 flex-wrap">
             {filterOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => setFilter(option.value)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-3 md:px-4 py-2 rounded-lg text-sm md:text-base font-medium transition-all ${
                   filter === option.value
                     ? "bg-purple-500 text-white"
                     : "bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
@@ -191,21 +224,21 @@ export default function JobsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
           </div>
         ) : filteredJobs.length === 0 ? (
-          <Card className="p-12 bg-white/5 border-white/10 text-center">
+          <Card className="p-8 md:p-12 bg-white/5 border-white/10 text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 mb-4">
               <FileText className="h-8 w-8 text-purple-400" />
             </div>
             <p className="text-lg font-medium text-white mb-2">No jobs found</p>
-            <p className="text-zinc-400 mb-6">
+            <p className="text-sm md:text-base text-zinc-400 mb-6">
               {filter === "all"
-                ? "You haven't booked any contractors yet"
+                ? "You haven't posted any jobs yet"
                 : `No ${filter} jobs at the moment`}
             </p>
             <Button
-              onClick={() => router.push("/dashboard/customer/contractors")}
+              onClick={() => router.push("/dashboard/customer/jobs/new")}
               className="bg-purple-500 hover:bg-purple-600 text-white"
             >
-              Find Contractors
+              Post Your First Job
             </Button>
           </Card>
         ) : (
@@ -213,16 +246,16 @@ export default function JobsPage() {
             {filteredJobs.map((job) => (
               <Card
                 key={job.id}
-                className="p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
+                className="p-4 md:p-6 bg-white/5 border-white/10 hover:bg-white/10 transition-all"
               >
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-4 gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-semibold text-white">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="text-lg md:text-xl font-semibold text-white">
                         {job.title}
                       </h3>
                       <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(
+                        className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium border ${getStatusColor(
                           job.status
                         )}`}
                       >
@@ -238,25 +271,29 @@ export default function JobsPage() {
                             : "bg-green-500/10 text-green-400"
                         }`}
                       >
-                        {job.urgency} urgency
+                        {job.urgency}
                       </span>
                     </div>
-                    <p className="text-purple-400">{job.location}</p>
+                    <p className="text-sm md:text-base text-purple-400">
+                      {job.location}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center text-green-400 font-bold text-xl">
-                      <DollarSign className="h-5 w-5" />
+                  <div className="text-left md:text-right">
+                    <div className="flex items-center text-green-400 font-bold text-lg md:text-xl">
+                      <DollarSign className="h-4 w-4 md:h-5 md:w-5" />
                       <span>
                         RM {job.budget_min} - {job.budget_max}
                       </span>
                     </div>
-                    <p className="text-sm text-zinc-500">Budget</p>
+                    <p className="text-xs md:text-sm text-zinc-500">Budget</p>
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-zinc-300 mb-3">{job.description}</p>
-                  <div className="flex flex-wrap gap-4 text-sm text-zinc-400">
+                  <p className="text-sm md:text-base text-zinc-300 mb-3 line-clamp-2 md:line-clamp-none">
+                    {job.description}
+                  </p>
+                  <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 text-xs md:text-sm text-zinc-400">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-2 text-purple-400" />
                       Preferred:{" "}
@@ -269,22 +306,24 @@ export default function JobsPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                   <Button
                     onClick={() =>
                       router.push(`/dashboard/customer/jobs/${job.id}`)
                     }
                     variant="outline"
-                    className="border-white/10 text-white hover:bg-white/5"
+                    size="sm"
+                    className="w-full sm:w-auto border-white/10 text-white hover:bg-white/5"
                   >
                     <FileText className="h-4 w-4 mr-2" />
                     View Details
                   </Button>
                   {job.status === "open" && (
                     <Button
-                      onClick={() => cancelJob(job.id)}
+                      onClick={() => openCancelDialog(job)}
                       variant="outline"
-                      className="border-red-500/20 text-red-400 hover:bg-red-500/10"
+                      size="sm"
+                      className="w-full sm:w-auto border-red-500/20 text-red-400 hover:bg-red-500/10"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
                       Cancel
@@ -296,6 +335,43 @@ export default function JobsPage() {
           </div>
         )}
       </div>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog
+        open={cancelDialog.open}
+        onOpenChange={(open) =>
+          !open && setCancelDialog({ open: false, jobId: null, jobTitle: null })
+        }
+      >
+        <AlertDialogContent className="bg-zinc-900 border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              Cancel Job Posting?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Are you sure you want to cancel{" "}
+              <span className="font-semibold text-white">
+                "{cancelDialog.jobTitle}"
+              </span>
+              ? This action cannot be undone and contractors will no longer be
+              able to submit quotes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+              Keep Job
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                cancelDialog.jobId && cancelJob(cancelDialog.jobId)
+              }
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Yes, Cancel Job
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
