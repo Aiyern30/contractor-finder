@@ -102,6 +102,28 @@ export interface Review {
   updated_at: string;
 }
 
+export interface JobRequest {
+  id: string;
+  customer_id: string;
+  category_id: string;
+  title: string;
+  description: string;
+  location: string | null;
+  budget_min: number | null;
+  budget_max: number | null;
+  preferred_date: string | null;
+  urgency: "low" | "medium" | "high" | "emergency";
+  status:
+    | "open"
+    | "quoted"
+    | "assigned"
+    | "in-progress"
+    | "completed"
+    | "cancelled";
+  created_at: string;
+  updated_at: string;
+}
+
 // Joined query types
 export interface ContractorWithDetails extends ContractorProfile {
   profiles: Profile; // Changed from array to single object
