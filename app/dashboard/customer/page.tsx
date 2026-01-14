@@ -29,6 +29,9 @@ export default function CustomerDashboardPage() {
     totalSpent: 0,
   });
 
+  const [activities, setActivities] = useState<any[]>([]);
+  const [schedule, setSchedule] = useState<any[]>([]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -49,23 +52,25 @@ export default function CustomerDashboardPage() {
           setProfile(profileData);
         }
 
-        // Load stats
+        // --- LOAD STATS ---
+
         // 1. Total Projects (from job_requests)
         const { count: projectsCount } = await supabase
           .from("job_requests")
           .select("*", { count: "exact", head: true })
           .eq("customer_id", session.user.id);
 
-        // 2. Pending Quotes (where status is pending for user's job requests)
-        // We first need job request IDs for this user
+        // Get user jobs for other queries
         const { data: userJobs } = await supabase
           .from("job_requests")
-          .select("id")
+          .select("id, title")
           .eq("customer_id", session.user.id);
 
+        const jobIds = userJobs?.map((j) => j.id) || [];
+
+        // 2. Pending Quotes
         let quotesCount = 0;
-        if (userJobs && userJobs.length > 0) {
-          const jobIds = userJobs.map((j) => j.id);
+        if (jobIds.length > 0) {
           const { count } = await supabase
             .from("quotes")
             .select("*", { count: "exact", head: true })
@@ -74,20 +79,19 @@ export default function CustomerDashboardPage() {
           quotesCount = count || 0;
         }
 
-        // 3. Active Jobs (from bookings where status is scheduled or in_progress)
+        // 3. Active Jobs
         const { count: activeCount } = await supabase
           .from("bookings")
           .select("*", { count: "exact", head: true })
           .eq("customer_id", session.user.id)
           .in("status", ["scheduled", "in_progress"]);
 
-        // 4. Total Spent (sum of quoted_price from completed bookings)
-        // We need to join bookings with quotes to get the price
+        // 4. Total Spent
         const { data: completedBookings } = await supabase
           .from("bookings")
           .select(
             `
-            id,
+            id, 
             status,
             quotes (
               quoted_price
@@ -102,6 +106,139 @@ export default function CustomerDashboardPage() {
             return sum + (booking.quotes?.quoted_price || 0);
           }, 0) || 0;
 
+        // --- LOAD RECENT ACTIVITY ---
+        // We'll fetch 3 types of events: New Quotes, New/Updated Bookings, New Messages
+        interface DashboardActivity {
+          type: "quote" | "booking" | "message";
+          title: string;
+          desc: string;
+          date: Date;
+          timeAgo?: string;
+        }
+
+        const rawActivities: DashboardActivity[] = [];
+
+        // A. Recent Quotes
+        if (jobIds.length > 0) {
+          const { data: recentQuotes } = await supabase
+            .from("quotes")
+            .select(
+              `
+              created_at, 
+              quoted_price,
+              job_requests (title),
+              contractor_profiles (business_name)
+            `
+            )
+            .in("job_request_id", jobIds)
+            .order("created_at", { ascending: false })
+            .limit(3);
+
+          if (recentQuotes) {
+            recentQuotes.forEach((q: any) => {
+              rawActivities.push({
+                type: "quote",
+                title: "New Quote Received", // Or "Quote from [Contractor]"
+                desc: `${q.contractor_profiles?.business_name} quoted $${q.quoted_price} for ${q.job_requests?.title}`,
+                date: new Date(q.created_at),
+              });
+            });
+          }
+        }
+
+        // B. Recent Bookings (Status changes or new bookings)
+        const { data: recentBookings } = await supabase
+          .from("bookings")
+          .select(
+            `
+            created_at,
+            status,
+            scheduled_date,
+            job_requests (title)
+          `
+          )
+          .eq("customer_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (recentBookings) {
+          recentBookings.forEach((b: any) => {
+            let title = "Booking Update";
+            if (b.status === "scheduled") title = "Project Scheduled";
+            if (b.status === "completed") title = "Project Completed";
+
+            rawActivities.push({
+              type: "booking",
+              title: title,
+              desc: `${b.job_requests?.title} - ${b.status}`,
+              date: new Date(b.created_at),
+            });
+          });
+        }
+
+        // C. Recent Messages
+        const { data: recentMessages } = await supabase
+          .from("messages")
+          .select(
+            `
+            created_at,
+            message,
+            sender:profiles (full_name)
+          `
+          )
+          .eq("receiver_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (recentMessages) {
+          recentMessages.forEach((m: any) => {
+            rawActivities.push({
+              type: "message",
+              title: `Message from ${m.sender?.full_name?.split(" ")[0]}`,
+              desc: m.message,
+              date: new Date(m.created_at),
+            });
+          });
+        }
+
+        // Sort and take top 3
+        rawActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
+        const finalActivities = rawActivities.slice(0, 3).map((act) => ({
+          ...act,
+          timeAgo: getTimeAgo(act.date),
+        }));
+
+        // --- LOAD UPCOMING SCHEDULE ---
+        const { data: upcomingData } = await supabase
+          .from("bookings")
+          .select(
+            `
+            scheduled_date,
+            status,
+            job_requests (title),
+            contractor_profiles (business_name)
+          `
+          )
+          .eq("customer_id", session.user.id)
+          .in("status", ["scheduled", "in_progress"])
+          .gte("scheduled_date", new Date().toISOString())
+          .order("scheduled_date", { ascending: true })
+          .limit(3);
+
+        const finalSchedule = upcomingData
+          ? upcomingData.map((item: any) => ({
+              title: item.job_requests?.title || "Project",
+              date: new Date(item.scheduled_date).toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              }),
+              status:
+                item.status === "in_progress" ? "In Progress" : "Confirmed",
+            }))
+          : [];
+
         if (mounted) {
           setStats({
             totalProjects: projectsCount || 0,
@@ -109,6 +246,8 @@ export default function CustomerDashboardPage() {
             pendingQuotes: quotesCount,
             totalSpent: spent,
           });
+          setActivities(finalActivities);
+          setSchedule(finalSchedule);
           setLoading(false);
         }
       }
@@ -120,6 +259,21 @@ export default function CustomerDashboardPage() {
       mounted = false;
     };
   }, [supabase]);
+
+  function getTimeAgo(date: Date) {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return "Just now";
+  }
 
   // Calculate profile completion
   const profileCompletion = profile
@@ -235,41 +389,38 @@ export default function CustomerDashboardPage() {
               </h3>
             </div>
             <div className="space-y-6">
-              {[
-                {
-                  title: "New Quote Received",
-                  desc: "Plumbing Fix for Kitchen",
-                  time: "2 hours ago",
-                  icon: <DollarSign className="h-4 w-4 text-green-400" />,
-                },
-                {
-                  title: "Project Completed",
-                  desc: "Bathroom Renovation",
-                  time: "Yesterday",
-                  icon: <CheckCircle className="h-4 w-4 text-indigo-400" />,
-                },
-                {
-                  title: "Message from John",
-                  desc: "Regarding electrical wiring...",
-                  time: "2 days ago",
-                  icon: <MessageSquare className="h-4 w-4 text-blue-400" />,
-                },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center">
-                  <span className="relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/5 items-center justify-center">
-                    {item.icon}
-                  </span>
-                  <div className="ml-4 space-y-1">
-                    <p className="text-sm font-medium leading-none text-white">
-                      {item.title}
-                    </p>
-                    <p className="text-sm text-zinc-500">{item.desc}</p>
+              {activities.length > 0 ? (
+                activities.map((item, i) => (
+                  <div key={i} className="flex items-center">
+                    <span className="relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/5 items-center justify-center">
+                      {item.type === "quote" && (
+                        <DollarSign className="h-4 w-4 text-green-400" />
+                      )}
+                      {item.type === "booking" && (
+                        <CheckCircle className="h-4 w-4 text-indigo-400" />
+                      )}
+                      {item.type === "message" && (
+                        <MessageSquare className="h-4 w-4 text-blue-400" />
+                      )}
+                    </span>
+                    <div className="ml-4 space-y-1">
+                      <p className="text-sm font-medium leading-none text-white">
+                        {item.title}
+                      </p>
+                      <p className="text-sm text-zinc-500 line-clamp-1">
+                        {item.desc}
+                      </p>
+                    </div>
+                    <div className="ml-auto font-medium text-xs text-zinc-600">
+                      {item.timeAgo}
+                    </div>
                   </div>
-                  <div className="ml-auto font-medium text-xs text-zinc-600">
-                    {item.time}
-                  </div>
+                ))
+              ) : (
+                <div className="text-zinc-500 text-sm text-center py-4">
+                  No recent activity
                 </div>
-              ))}
+              )}
             </div>
           </Card>
 
@@ -280,33 +431,34 @@ export default function CustomerDashboardPage() {
               </h3>
             </div>
             <div className="space-y-6">
-              {[
-                {
-                  title: "Site Inspection",
-                  date: "Tomorrow, 10:00 AM",
-                  status: "Confirmed",
-                },
-                {
-                  title: "Final Review",
-                  date: "Jan 15, 2:00 PM",
-                  status: "Pending",
-                },
-              ].map((item, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-white">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-zinc-500">{item.date}</p>
+              {schedule.length > 0 ? (
+                schedule.map((item, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-lg border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-white">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-zinc-500">{item.date}</p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset ${
+                        item.status === "Confirmed"
+                          ? "bg-blue-500/10 text-blue-400 ring-blue-500/20"
+                          : "bg-indigo-500/10 text-indigo-400 ring-indigo-500/20"
+                      }`}
+                    >
+                      {item.status}
+                    </span>
                   </div>
-                  <span className="inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
-                    {item.status}
-                  </span>
+                ))
+              ) : (
+                <div className="text-zinc-500 text-sm text-center py-4">
+                  No upcoming scheduled jobs
                 </div>
-              ))}
+              )}
             </div>
           </Card>
         </div>
