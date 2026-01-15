@@ -54,6 +54,7 @@ export default function JobsPage() {
     active: 0,
     open: 0,
     completed: 0,
+    cancelled: 0,
   });
   const [cancelDialog, setCancelDialog] = useState<{
     open: boolean;
@@ -152,11 +153,19 @@ export default function JobsPage() {
         .eq("customer_id", user.id)
         .eq("status", "completed");
 
+      // Fetch cancelled jobs count
+      const { count: cancelledCount } = await supabase
+        .from("job_requests")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", user.id)
+        .eq("status", "cancelled");
+
       setFilterCounts({
         all: allCount || 0,
         active: activeCount || 0,
         open: openCount || 0,
         completed: completedCount || 0,
+        cancelled: cancelledCount || 0,
       });
     } catch (error) {
       console.error("Error fetching filter counts:", error);
@@ -235,6 +244,7 @@ export default function JobsPage() {
     { value: "active", label: "Active", count: filterCounts.active },
     { value: "open", label: "Open", count: filterCounts.open },
     { value: "completed", label: "Completed", count: filterCounts.completed },
+    { value: "cancelled", label: "Cancelled", count: filterCounts.cancelled },
   ];
 
   return (
