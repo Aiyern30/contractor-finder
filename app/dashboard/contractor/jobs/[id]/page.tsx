@@ -158,6 +158,13 @@ export default function ContractorJobDetailPage() {
         return;
       }
 
+      // Check if quote is accepted
+      if (existingQuote?.status === "accepted") {
+        toast.error("Cannot modify an accepted quote");
+        setSubmitting(false);
+        return;
+      }
+
       // Check if quote already exists
       if (existingQuote) {
         // Update existing quote
@@ -212,6 +219,12 @@ export default function ContractorJobDetailPage() {
   };
 
   const openQuoteDialog = () => {
+    // Prevent opening dialog if accepted
+    if (existingQuote?.status === "accepted") {
+      toast.error("You cannot edit an accepted quote");
+      return;
+    }
+
     // Pre-fill form if updating existing quote
     if (existingQuote) {
       setQuoteData({
@@ -316,7 +329,9 @@ export default function ContractorJobDetailPage() {
                   Your Quote
                 </h3>
                 <p className="text-sm text-zinc-400">
-                  You have already submitted a quote for this job
+                  {existingQuote.status === "accepted"
+                    ? "Congratulations! Your quote has been accepted."
+                    : "You have already submitted a quote for this job"}
                 </p>
               </div>
               <span
@@ -375,6 +390,15 @@ export default function ContractorJobDetailPage() {
                   className="border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/10"
                 >
                   Update Quote
+                </Button>
+              )}
+              {existingQuote.status === "accepted" && (
+                <Button
+                  disabled
+                  size="sm"
+                  className="bg-green-500/20 text-green-400 border border-green-500/20 cursor-not-allowed"
+                >
+                  Accepted
                 </Button>
               )}
             </div>
@@ -475,11 +499,20 @@ export default function ContractorJobDetailPage() {
           <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/10">
             <Button
               onClick={openQuoteDialog}
-              className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white"
+              disabled={existingQuote?.status === "accepted"}
+              className={`flex-1 text-white ${
+                existingQuote?.status === "accepted"
+                  ? "bg-green-600/50 cursor-not-allowed"
+                  : "bg-indigo-500 hover:bg-indigo-600"
+              }`}
               size="lg"
             >
               <DollarSign className="h-5 w-5 mr-2" />
-              {existingQuote ? "Update Quote" : "Submit Quote"}
+              {existingQuote
+                ? existingQuote.status === "accepted"
+                  ? "Quote Accepted"
+                  : "Update Quote"
+                : "Submit Quote"}
             </Button>
             <Button
               onClick={handleMessageCustomer}
