@@ -87,7 +87,9 @@ export default function JobsPage() {
 
         // Apply status filter
         if (statusFilter === "active") {
-          query = query.in("status", ["open", "in-progress"]);
+          query = query.in("status", ["assigned", "in-progress"]);
+        } else if (statusFilter === "open") {
+          query = query.in("status", ["open", "quoted"]);
         } else if (statusFilter !== "all") {
           query = query.eq("status", statusFilter);
         }
@@ -129,19 +131,19 @@ export default function JobsPage() {
         .select("*", { count: "exact", head: true })
         .eq("customer_id", user.id);
 
-      // Fetch active jobs count
+      // Fetch active jobs count (assigned or in-progress)
       const { count: activeCount } = await supabase
         .from("job_requests")
         .select("*", { count: "exact", head: true })
         .eq("customer_id", user.id)
-        .in("status", ["open", "in-progress"]);
+        .in("status", ["assigned", "in-progress"]);
 
-      // Fetch open jobs count
+      // Fetch open jobs count (open or quoted)
       const { count: openCount } = await supabase
         .from("job_requests")
         .select("*", { count: "exact", head: true })
         .eq("customer_id", user.id)
-        .eq("status", "open");
+        .in("status", ["open", "quoted"]);
 
       // Fetch completed jobs count
       const { count: completedCount } = await supabase
@@ -174,6 +176,9 @@ export default function JobsPage() {
     switch (status) {
       case "open":
         return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+      case "quoted":
+        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+      case "assigned":
       case "in-progress":
         return "bg-purple-500/10 text-purple-400 border-purple-500/20";
       case "completed":

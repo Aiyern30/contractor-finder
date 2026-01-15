@@ -29,6 +29,7 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle,
+  Trophy,
 } from "lucide-react";
 import { JobRequest } from "@/types/database";
 
@@ -319,6 +320,25 @@ export default function ContractorJobDetailPage() {
       </header>
 
       <div className="container mx-auto p-4 md:p-8 max-w-4xl">
+        {/* Hired Banner */}
+        {existingQuote?.status === "accepted" && (
+          <div className="mb-6 p-6 rounded-xl bg-linear-to-r from-yellow-500/20 via-orange-500/20 to-yellow-500/20 border border-yellow-500/30 flex items-center gap-4 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-yellow-500/5 group-hover:bg-yellow-500/10 transition-colors" />
+            <div className="flex bg-yellow-500/20 p-3 rounded-full shrink-0 relative z-10">
+              <Trophy className="h-6 w-6 text-yellow-400" />
+            </div>
+            <div className="relative z-10">
+              <h3 className="text-lg font-bold text-yellow-200">
+                You've been hired!
+              </h3>
+              <p className="text-yellow-200/70 text-sm">
+                The customer has accepted your quote. You can now message them
+                to coordinate the work.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Existing Quote Card - Only visible to contractor who submitted */}
         {existingQuote && (
           <Card className="p-6 mb-6 rounded-xl border-2 border-indigo-700 bg-linear-to-br from-zinc-900 via-indigo-950 to-purple-950 shadow-lg">

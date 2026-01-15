@@ -217,6 +217,31 @@ export default function JobDetailsPage() {
     }
   };
 
+  const updateJobStatus = async (newStatus: Job["status"]) => {
+    if (!job) return;
+    try {
+      setProcessingAction(true);
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from("job_requests")
+        .update({ status: newStatus })
+        .eq("id", job.id);
+
+      if (error) throw error;
+
+      toast.success(
+        `Job marked as ${newStatus.replace("_", " ").toUpperCase()}`
+      );
+      fetchJobDetails();
+    } catch (error: any) {
+      console.error("Error updating job status:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "high":
@@ -227,6 +252,25 @@ export default function JobDetailsPage() {
         return "text-green-400 bg-green-500/10 border-green-500/20";
       default:
         return "text-zinc-400 bg-zinc-500/10 border-zinc-500/20";
+    }
+  };
+
+  const getStatusBadgeStyles = (status: Job["status"]) => {
+    switch (status) {
+      case "open":
+        return "text-blue-400 border-blue-500/20 bg-blue-500/10";
+      case "quoted":
+        return "text-cyan-400 border-cyan-500/20 bg-cyan-500/10";
+      case "assigned":
+        return "text-purple-400 border-purple-500/20 bg-purple-500/10";
+      case "in_progress":
+        return "text-orange-400 border-orange-500/20 bg-orange-500/10";
+      case "completed":
+        return "text-green-400 border-green-500/20 bg-green-500/10";
+      case "cancelled":
+        return "text-red-400 border-red-500/20 bg-red-500/10";
+      default:
+        return "text-zinc-400 border-zinc-500/20 bg-zinc-500/10";
     }
   };
 
@@ -467,6 +511,7 @@ export default function JobDetailsPage() {
                                 Accepted
                               </Button>
                             ) : job.status !== "assigned" &&
+                              job.status !== "in_progress" &&
                               job.status !== "completed" &&
                               job.status !== "cancelled" ? (
                               <Button
@@ -506,17 +551,39 @@ export default function JobDetailsPage() {
                   <span className="text-zinc-400">Status</span>
                   <Badge
                     variant="outline"
-                    className={
-                      job.status === "open"
-                        ? "text-blue-400 border-blue-500/20 bg-blue-500/10"
-                        : job.status === "assigned"
-                        ? "text-purple-400 border-purple-500/20 bg-purple-500/10"
-                        : "text-zinc-400"
-                    }
+                    className={getStatusBadgeStyles(job.status)}
                   >
-                    {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                    {job.status
+                      .replace("_", " ")
+                      .split(" ")
+                      .map(
+                        (word) => word.charAt(0).toUpperCase() + word.slice(1)
+                      )
+                      .join(" ")}
                   </Badge>
                 </div>
+
+                {/* Status Actions */}
+                {job.status === "assigned" && (
+                  <Button
+                    onClick={() => updateJobStatus("in_progress")}
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                    disabled={processingAction}
+                  >
+                    Start Job
+                  </Button>
+                )}
+
+                {job.status === "in_progress" && (
+                  <Button
+                    onClick={() => updateJobStatus("completed")}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    disabled={processingAction}
+                  >
+                    Mark as Completed
+                  </Button>
+                )}
+
                 <div className="flex justify-between items-center py-2 border-b border-white/5">
                   <span className="text-zinc-400">Quotes Received</span>
                   <span className="text-white font-mono">{quotes.length}</span>
